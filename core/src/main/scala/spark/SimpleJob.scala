@@ -267,7 +267,7 @@ class SimpleJob(
                   (false, dupCount + 1)
                 }
               } else {
-                recentExceptions += Tuple(key, (0, now))
+                recentExceptions += (key -> (0, now))
                 (true, 0)
               }
 

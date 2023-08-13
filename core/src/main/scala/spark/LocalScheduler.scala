@@ -1,5 +1,6 @@
 package spark
 
+import java.lang.Thread.currentThread
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
