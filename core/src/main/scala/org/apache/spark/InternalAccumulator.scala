@@ -28,6 +28,7 @@ private[spark] object InternalAccumulator {
   val SHUFFLE_WRITE_METRICS_PREFIX = METRICS_PREFIX + "shuffle.write."
   val OUTPUT_METRICS_PREFIX = METRICS_PREFIX + "output."
   val INPUT_METRICS_PREFIX = METRICS_PREFIX + "input."
+  val IN_TASK_PREFIX = METRICS_PREFIX + "inTask."
 
   // Names of internal task level metrics
   val EXECUTOR_DESERIALIZE_TIME = METRICS_PREFIX + "executorDeserializeTime"
@@ -73,6 +74,11 @@ private[spark] object InternalAccumulator {
   object input {
     val BYTES_READ = INPUT_METRICS_PREFIX + "bytesRead"
     val RECORDS_READ = INPUT_METRICS_PREFIX + "recordsRead"
+  }
+
+  object inTask {
+    val SERIALIZATION_TIME = IN_TASK_PREFIX + "serializationTime"
+    val DESERIALIZATION_TIME = IN_TASK_PREFIX + "deserializationTime"
   }
 
   // scalastyle:on

@@ -24,7 +24,7 @@ import scala.reflect.ClassTag
 
 import com.google.common.io.ByteStreams
 
-import org.apache.spark.serializer.{DeserializationStream, SerializationStream, Serializer, SerializerInstance}
+import org.apache.spark.serializer.{DeserializationStream, DummyMetrics, SerializationStream, Serializer, SerializerInstance, SerializerReporter}
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.sql.execution.metric.SQLMetric
 import org.apache.spark.unsafe.Platform
@@ -43,7 +43,7 @@ import org.apache.spark.unsafe.Platform
 class UnsafeRowSerializer(
     numFields: Int,
     dataSize: SQLMetric = null) extends Serializer with Serializable {
-  override def newInstance(): SerializerInstance =
+  override def newInstance(metrics: SerializerReporter = new DummyMetrics): SerializerInstance =
     new UnsafeRowSerializerInstance(numFields, dataSize)
   override def supportsRelocationOfSerializedObjects: Boolean = true
 }

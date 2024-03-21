@@ -148,6 +148,8 @@ class TaskMetrics private[spark] () extends Serializable {
   private[spark] def setUpdatedBlockStatuses(v: Seq[(BlockId, BlockStatus)]): Unit =
     _updatedBlockStatuses.setValue(v.asJava)
 
+  val inTaskMetrics: InTaskMetrics = new InTaskMetrics()
+
   /**
    * Metrics related to reading data from a [[org.apache.spark.rdd.HadoopRDD]] or from persisted
    * data, defined only in tasks with input.
@@ -233,7 +235,9 @@ class TaskMetrics private[spark] () extends Serializable {
     input.BYTES_READ -> inputMetrics._bytesRead,
     input.RECORDS_READ -> inputMetrics._recordsRead,
     output.BYTES_WRITTEN -> outputMetrics._bytesWritten,
-    output.RECORDS_WRITTEN -> outputMetrics._recordsWritten
+    output.RECORDS_WRITTEN -> outputMetrics._recordsWritten,
+    inTask.SERIALIZATION_TIME -> inTaskMetrics._serializeTime,
+    inTask.DESERIALIZATION_TIME -> inTaskMetrics._deserializeTime
   ) ++ testAccum.map(TEST_ACCUM -> _)
 
   @transient private[spark] lazy val internalAccums: Seq[AccumulatorV2[_, _]] =

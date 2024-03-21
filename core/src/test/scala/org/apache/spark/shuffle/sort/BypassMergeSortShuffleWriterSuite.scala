@@ -19,20 +19,17 @@ package org.apache.spark.shuffle.sort
 
 import java.io.File
 import java.util.UUID
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-
 import org.mockito.{Mock, MockitoAnnotations}
 import org.mockito.Answers.RETURNS_SMART_NULLS
 import org.mockito.ArgumentMatchers.{any, anyInt, anyLong}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterEach
-
 import org.apache.spark._
 import org.apache.spark.executor.{ShuffleWriteMetrics, TaskMetrics}
 import org.apache.spark.memory.{TaskMemoryManager, TestMemoryManager}
-import org.apache.spark.serializer.{JavaSerializer, SerializerInstance, SerializerManager}
+import org.apache.spark.serializer.{DummyMetrics, JavaSerializer, SerializerInstance, SerializerManager}
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.io.LocalDiskShuffleExecutorComponents
@@ -141,6 +138,7 @@ class BypassMergeSortShuffleWriterSuite extends SparkFunSuite with BeforeAndAfte
       0L, // MapId
       conf,
       taskContext.taskMetrics().shuffleWriteMetrics,
+      new DummyMetrics(),
       shuffleExecutorComponents)
 
     writer.write(Iterator.empty)
@@ -167,6 +165,7 @@ class BypassMergeSortShuffleWriterSuite extends SparkFunSuite with BeforeAndAfte
         0L, // MapId
         transferConf,
         taskContext.taskMetrics().shuffleWriteMetrics,
+        new DummyMetrics(),
         shuffleExecutorComponents)
       writer.write(records)
       writer.stop( /* success = */ true)
@@ -202,6 +201,7 @@ class BypassMergeSortShuffleWriterSuite extends SparkFunSuite with BeforeAndAfte
       0L, // MapId
       conf,
       taskContext.taskMetrics().shuffleWriteMetrics,
+      new DummyMetrics(),
       shuffleExecutorComponents)
 
     intercept[SparkException] {
@@ -223,6 +223,7 @@ class BypassMergeSortShuffleWriterSuite extends SparkFunSuite with BeforeAndAfte
       0L, // MapId
       conf,
       taskContext.taskMetrics().shuffleWriteMetrics,
+      new DummyMetrics(),
       shuffleExecutorComponents)
     intercept[SparkException] {
       writer.write((0 until 100000).iterator.map(i => {

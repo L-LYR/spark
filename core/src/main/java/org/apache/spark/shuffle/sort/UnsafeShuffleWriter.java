@@ -51,6 +51,7 @@ import org.apache.spark.scheduler.MapStatus$;
 import org.apache.spark.shuffle.ShuffleWriteMetricsReporter;
 import org.apache.spark.serializer.SerializationStream;
 import org.apache.spark.serializer.SerializerInstance;
+import org.apache.spark.serializer.SerializerReporter;
 import org.apache.spark.shuffle.ShuffleWriter;
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents;
 import org.apache.spark.shuffle.api.ShuffleMapOutputWriter;
@@ -77,6 +78,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
   private final SerializerInstance serializer;
   private final Partitioner partitioner;
   private final ShuffleWriteMetricsReporter writeMetrics;
+  private final SerializerReporter serializerMetrics;
   private final ShuffleExecutorComponents shuffleExecutorComponents;
   private final int shuffleId;
   private final long mapId;
@@ -114,6 +116,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       TaskContext taskContext,
       SparkConf sparkConf,
       ShuffleWriteMetricsReporter writeMetrics,
+      SerializerReporter serializerMetrics,
       ShuffleExecutorComponents shuffleExecutorComponents) {
     final int numPartitions = handle.dependency().partitioner().numPartitions();
     if (numPartitions > SortShuffleManager.MAX_SHUFFLE_OUTPUT_PARTITIONS_FOR_SERIALIZED_MODE()) {
@@ -127,9 +130,10 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     this.mapId = mapId;
     final ShuffleDependency<K, V, V> dep = handle.dependency();
     this.shuffleId = dep.shuffleId();
-    this.serializer = dep.serializer().newInstance();
+    this.serializer = dep.serializer().newInstance(serializerMetrics);
     this.partitioner = dep.partitioner();
     this.writeMetrics = writeMetrics;
+    this.serializerMetrics = serializerMetrics;
     this.shuffleExecutorComponents = shuffleExecutorComponents;
     this.taskContext = taskContext;
     this.sparkConf = sparkConf;
