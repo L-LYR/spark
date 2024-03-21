@@ -44,7 +44,7 @@ private[spark] class JavaSerializationStream(
       val startTime = System.nanoTime()
       objOut.writeObject(t)
       val endTime = System.nanoTime()
-      System.out.print("s: %d\n".format(endTime - startTime))
+      System.out.print("js: %d\n".format(endTime - startTime))
     } catch {
       case e: NotSerializableException if extraDebugInfo =>
         throw SerializationDebugger.improveException(t, e)
@@ -57,7 +57,13 @@ private[spark] class JavaSerializationStream(
     this
   }
 
-  def flush(): Unit = { objOut.flush() }
+  def flush(): Unit = {
+    val startTime = System.nanoTime()
+    objOut.flush()
+    val endTime = System.nanoTime()
+    System.out.print("jf: %d\n".format(endTime - startTime))
+  }
+
   def close(): Unit = { objOut.close() }
 }
 
@@ -80,7 +86,7 @@ private[spark] class JavaDeserializationStream(in: InputStream, loader: ClassLoa
     val startTime = System.nanoTime()
     val obj = objIn.readObject().asInstanceOf[T]
     val endTime = System.nanoTime()
-    System.out.print("d: %d\n".format(endTime - startTime))
+    System.out.print("jd: %d\n".format(endTime - startTime))
     obj
   }
   def close(): Unit = { objIn.close() }
