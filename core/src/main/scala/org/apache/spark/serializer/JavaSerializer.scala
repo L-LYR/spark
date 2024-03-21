@@ -41,7 +41,10 @@ private[spark] class JavaSerializationStream(
    */
   def writeObject[T: ClassTag](t: T): SerializationStream = {
     try {
+      val startTime = System.currentTimeMillis()
       objOut.writeObject(t)
+      val endTime = System.currentTimeMillis()
+      System.out.print("s: %d\n".format(endTime - startTime))
     } catch {
       case e: NotSerializableException if extraDebugInfo =>
         throw SerializationDebugger.improveException(t, e)
@@ -73,7 +76,13 @@ private[spark] class JavaDeserializationStream(in: InputStream, loader: ClassLoa
       }
   }
 
-  def readObject[T: ClassTag](): T = objIn.readObject().asInstanceOf[T]
+  def readObject[T: ClassTag](): T = {
+    val startTime = System.currentTimeMillis()
+    val obj = objIn.readObject().asInstanceOf[T]
+    val endTime = System.currentTimeMillis()
+    System.out.print("d: %d\n".format(endTime - startTime))
+    obj
+  }
   def close(): Unit = { objIn.close() }
 }
 
