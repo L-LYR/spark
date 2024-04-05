@@ -23,6 +23,7 @@ import java.nio.ByteBuffer
 import scala.reflect.ClassTag
 
 import org.apache.spark.SparkConf
+import org.apache.spark.TaskContext
 import org.apache.spark.internal.config
 import org.apache.spark.io.CompressionCodec
 import org.apache.spark.security.CryptoStreamUtils
@@ -169,29 +170,34 @@ private[spark] class SerializerManager(
   def dataSerializeStream[T: ClassTag](
       blockId: BlockId,
       outputStream: OutputStream,
-      values: Iterator[T]): Unit = {
+      values: Iterator[T],
+      metrics: SerializerReporter = TaskContext.get().taskMetrics().inTaskMetrics): Unit = {
     val byteStream = new BufferedOutputStream(outputStream)
     val autoPick = !blockId.isInstanceOf[StreamBlockId]
-    val ser = getSerializer(implicitly[ClassTag[T]], autoPick).newInstance()
+    val ser = getSerializer(implicitly[ClassTag[T]], autoPick).newInstance(metrics)
     ser.serializeStream(wrapForCompression(blockId, byteStream)).writeAll(values).close()
   }
 
   /** Serializes into a chunked byte buffer. */
   def dataSerialize[T: ClassTag](
       blockId: BlockId,
-      values: Iterator[T]): ChunkedByteBuffer = {
-    dataSerializeWithExplicitClassTag(blockId, values, implicitly[ClassTag[T]])
+      values: Iterator[T],
+      metrics: SerializerReporter
+        = TaskContext.get().taskMetrics().inTaskMetrics): ChunkedByteBuffer = {
+    dataSerializeWithExplicitClassTag(blockId, values, implicitly[ClassTag[T]], metrics)
   }
 
   /** Serializes into a chunked byte buffer. */
   def dataSerializeWithExplicitClassTag(
       blockId: BlockId,
       values: Iterator[_],
-      classTag: ClassTag[_]): ChunkedByteBuffer = {
+      classTag: ClassTag[_],
+      metrics: SerializerReporter
+        = TaskContext.get().taskMetrics().inTaskMetrics): ChunkedByteBuffer = {
     val bbos = new ChunkedByteBufferOutputStream(1024 * 1024 * 4, ByteBuffer.allocate)
     val byteStream = new BufferedOutputStream(bbos)
     val autoPick = !blockId.isInstanceOf[StreamBlockId]
-    val ser = getSerializer(classTag, autoPick).newInstance()
+    val ser = getSerializer(classTag, autoPick).newInstance(metrics)
     ser.serializeStream(wrapForCompression(blockId, byteStream)).writeAll(values).close()
     bbos.toChunkedByteBuffer
   }
@@ -202,12 +208,14 @@ private[spark] class SerializerManager(
    */
   def dataDeserializeStream[T](
       blockId: BlockId,
-      inputStream: InputStream)
+      inputStream: InputStream,
+      metrics: SerializerReporter
+        = TaskContext.get().taskMetrics().inTaskMetrics)
       (classTag: ClassTag[T]): Iterator[T] = {
     val stream = new BufferedInputStream(inputStream)
     val autoPick = !blockId.isInstanceOf[StreamBlockId]
     getSerializer(classTag, autoPick)
-      .newInstance()
+      .newInstance(metrics)
       .deserializeStream(wrapForCompression(blockId, stream))
       .asIterator.asInstanceOf[Iterator[T]]
   }

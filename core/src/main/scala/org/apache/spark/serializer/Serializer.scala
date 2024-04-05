@@ -62,7 +62,7 @@ abstract class Serializer {
   }
 
   /** Creates a new [[SerializerInstance]]. */
-  def newInstance(): SerializerInstance
+  def newInstance(serializerReporter: SerializerReporter = new DummyMetrics): SerializerInstance
 
   /**
    * :: Private ::

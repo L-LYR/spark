@@ -232,8 +232,8 @@ class KryoSerializer(conf: SparkConf)
     this
   }
 
-  override def newInstance(): SerializerInstance = {
-    new KryoSerializerInstance(this, useUnsafe, usePool)
+  override def newInstance(metrics: SerializerReporter): SerializerInstance = {
+    new KryoSerializerInstance(this, useUnsafe, usePool, metrics)
   }
 
   private[spark] override lazy val supportsRelocationOfSerializedObjects: Boolean = {
@@ -317,7 +317,7 @@ class KryoDeserializationStream(
 }
 
 private[spark] class KryoSerializerInstance(
-   ks: KryoSerializer, useUnsafe: Boolean, usePool: Boolean)
+   ks: KryoSerializer, useUnsafe: Boolean, usePool: Boolean, metrics: SerializerReporter)
   extends SerializerInstance {
   /**
    * A re-used [[Kryo]] instance. Methods will borrow this instance by calling `borrowKryo()`, do
