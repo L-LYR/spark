@@ -248,7 +248,8 @@ private[spark]
 class KryoSerializationStream(
     serInstance: KryoSerializerInstance,
     outStream: OutputStream,
-    useUnsafe: Boolean) extends SerializationStream {
+    useUnsafe: Boolean,
+    metrics: SerializerReporter) extends SerializationStream {
 
   private[this] var output: KryoOutput =
     if (useUnsafe) new KryoUnsafeOutput(outStream) else new KryoOutput(outStream)
@@ -256,7 +257,9 @@ class KryoSerializationStream(
   private[this] var kryo: Kryo = serInstance.borrowKryo()
 
   override def writeObject[T: ClassTag](t: T): SerializationStream = {
+    val startTime = System.nanoTime()
     kryo.writeClassAndObject(output, t)
+    metrics.incSerializeTime(System.nanoTime() - startTime)
     this
   }
 
@@ -284,7 +287,8 @@ private[spark]
 class KryoDeserializationStream(
     serInstance: KryoSerializerInstance,
     inStream: InputStream,
-    useUnsafe: Boolean) extends DeserializationStream {
+    useUnsafe: Boolean,
+    metrics: SerializerReporter) extends DeserializationStream {
 
   private[this] var input: KryoInput =
     if (useUnsafe) new KryoUnsafeInput(inStream) else new KryoInput(inStream)
@@ -292,7 +296,8 @@ class KryoDeserializationStream(
   private[this] var kryo: Kryo = serInstance.borrowKryo()
 
   override def readObject[T: ClassTag](): T = {
-    try {
+    val startTime = System.nanoTime()
+    val obj = try {
       kryo.readClassAndObject(input).asInstanceOf[T]
     } catch {
       // DeserializationStream uses the EOF exception to indicate stopping condition.
@@ -300,6 +305,8 @@ class KryoDeserializationStream(
         if e.getMessage.toLowerCase(Locale.ROOT).contains("buffer underflow") =>
         throw new EOFException
     }
+    metrics.incDeserializeTime(System.nanoTime() - startTime)
+    obj
   }
 
   override def close(): Unit = {
@@ -371,6 +378,7 @@ private[spark] class KryoSerializerInstance(
   private lazy val input = if (useUnsafe) new KryoUnsafeInput() else new KryoInput()
 
   override def serialize[T: ClassTag](t: T): ByteBuffer = {
+    val startTime = System.nanoTime()
     output.clear()
     val kryo = borrowKryo()
     try {
@@ -382,12 +390,15 @@ private[spark] class KryoSerializerInstance(
     } finally {
       releaseKryo(kryo)
     }
-    ByteBuffer.wrap(output.toBytes)
+    val byteBuffer = ByteBuffer.wrap(output.toBytes)
+    metrics.incSerializeTime(System.nanoTime() - startTime)
+    byteBuffer
   }
 
   override def deserialize[T: ClassTag](bytes: ByteBuffer): T = {
+    val startTime = System.nanoTime()
     val kryo = borrowKryo()
-    try {
+    val obj = try {
       if (bytes.hasArray) {
         input.setBuffer(bytes.array(), bytes.arrayOffset() + bytes.position(), bytes.remaining())
       } else {
@@ -398,12 +409,15 @@ private[spark] class KryoSerializerInstance(
     } finally {
       releaseKryo(kryo)
     }
+    metrics.incDeserializeTime(System.nanoTime() - startTime)
+    obj
   }
 
   override def deserialize[T: ClassTag](bytes: ByteBuffer, loader: ClassLoader): T = {
+    val startTime = System.nanoTime()
     val kryo = borrowKryo()
     val oldClassLoader = kryo.getClassLoader
-    try {
+    val obj = try {
       kryo.setClassLoader(loader)
       if (bytes.hasArray) {
         input.setBuffer(bytes.array(), bytes.arrayOffset() + bytes.position(), bytes.remaining())
@@ -416,14 +430,16 @@ private[spark] class KryoSerializerInstance(
       kryo.setClassLoader(oldClassLoader)
       releaseKryo(kryo)
     }
+    metrics.incDeserializeTime(System.nanoTime() - startTime)
+    obj
   }
 
   override def serializeStream(s: OutputStream): SerializationStream = {
-    new KryoSerializationStream(this, s, useUnsafe)
+    new KryoSerializationStream(this, s, useUnsafe, metrics)
   }
 
   override def deserializeStream(s: InputStream): DeserializationStream = {
-    new KryoDeserializationStream(this, s, useUnsafe)
+    new KryoDeserializationStream(this, s, useUnsafe, metrics)
   }
 
   /**
