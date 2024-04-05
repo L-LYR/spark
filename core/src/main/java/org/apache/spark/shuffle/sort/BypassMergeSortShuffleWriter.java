@@ -48,7 +48,7 @@ import org.apache.spark.scheduler.MapStatus;
 import org.apache.spark.scheduler.MapStatus$;
 import org.apache.spark.serializer.Serializer;
 import org.apache.spark.serializer.SerializerInstance;
-import org.apache.spark.serializer.DummyMetrics;
+import org.apache.spark.serializer.SerializerReporter;
 import org.apache.spark.shuffle.ShuffleWriteMetricsReporter;
 import org.apache.spark.shuffle.ShuffleWriter;
 import org.apache.spark.storage.*;
@@ -85,6 +85,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
   private final BlockManager blockManager;
   private final Partitioner partitioner;
   private final ShuffleWriteMetricsReporter writeMetrics;
+  private final SerializerReporter serializerMetrics;
   private final int shuffleId;
   private final long mapId;
   private final Serializer serializer;
@@ -109,6 +110,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       long mapId,
       SparkConf conf,
       ShuffleWriteMetricsReporter writeMetrics,
+      SerializerReporter serializerMetrics,
       ShuffleExecutorComponents shuffleExecutorComponents) {
     // Use getSizeAsKb (not bytes) to maintain backwards compatibility if no units are provided
     this.fileBufferSize = (int) (long) conf.get(package$.MODULE$.SHUFFLE_FILE_BUFFER_SIZE()) * 1024;
@@ -122,6 +124,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     this.writeMetrics = writeMetrics;
     this.serializer = dep.serializer();
     this.shuffleExecutorComponents = shuffleExecutorComponents;
+    this.serializerMetrics = serializerMetrics;
   }
 
   @Override
@@ -136,7 +139,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
           blockManager.shuffleServerId(), partitionLengths, mapId);
         return;
       }
-      final SerializerInstance serInstance = serializer.newInstance(new DummyMetrics());
+      final SerializerInstance serInstance = serializer.newInstance(serializerMetrics);
       final long openStartTime = System.nanoTime();
       partitionWriters = new DiskBlockObjectWriter[numPartitions];
       partitionWriterSegments = new FileSegment[numPartitions];

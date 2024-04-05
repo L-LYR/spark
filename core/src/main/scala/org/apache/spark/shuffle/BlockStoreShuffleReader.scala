@@ -82,7 +82,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
       readMetrics,
       fetchContinuousBlocksInBatch).toCompletionIterator
 
-    val serializerInstance = dep.serializer.newInstance()
+    val serializerInstance = dep.serializer.newInstance(context.taskMetrics().inTaskMetrics)
 
     // Create a key/value iterator for each stream
     val recordIter = wrappedStreams.flatMap { case (blockId, wrappedStream) =>
