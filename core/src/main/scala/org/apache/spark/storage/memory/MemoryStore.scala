@@ -700,7 +700,9 @@ private class SerializedValuesHolder[T](
   redirectableStream.setOutputStream(bbos)
   val serializationStream: SerializationStream = {
     val autoPick = !blockId.isInstanceOf[StreamBlockId]
-    val ser = serializerManager.getSerializer(classTag, autoPick).newInstance()
+    val ser = serializerManager
+      .getSerializer(classTag, autoPick)
+      .newInstance(TaskContext.get().taskMetrics().inTaskMetrics)
     ser.serializeStream(serializerManager.wrapForCompression(blockId, redirectableStream))
   }
 
