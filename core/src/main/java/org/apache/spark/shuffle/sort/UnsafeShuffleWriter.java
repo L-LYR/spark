@@ -26,6 +26,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Iterator;
 
+import org.apache.spark.serializer.DummyMetrics;
 import scala.Option;
 import scala.Product2;
 import scala.collection.JavaConverters;
@@ -127,7 +128,7 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     this.mapId = mapId;
     final ShuffleDependency<K, V, V> dep = handle.dependency();
     this.shuffleId = dep.shuffleId();
-    this.serializer = dep.serializer().newInstance();
+    this.serializer = dep.serializer().newInstance(new DummyMetrics());
     this.partitioner = dep.partitioner();
     this.writeMetrics = writeMetrics;
     this.shuffleExecutorComponents = shuffleExecutorComponents;
