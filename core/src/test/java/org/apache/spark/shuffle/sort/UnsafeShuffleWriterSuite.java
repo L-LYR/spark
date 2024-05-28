@@ -541,6 +541,7 @@ public class UnsafeShuffleWriterSuite {
         taskContext,
         conf,
         taskContext.taskMetrics().shuffleWriteMetrics(),
+        new DummyMetrics(),
         new LocalDiskShuffleExecutorComponents(conf, blockManager, shuffleBlockResolver));
 
     // Peak memory should be monotonically increasing. More specifically, every time

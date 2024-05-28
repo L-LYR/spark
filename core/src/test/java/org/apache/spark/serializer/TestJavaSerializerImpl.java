@@ -30,7 +30,7 @@ import scala.reflect.ClassTag;
 class TestJavaSerializerImpl extends Serializer {
 
   @Override
-  public SerializerInstance newInstance() {
+  public SerializerInstance newInstance(SerializerReporter r) {
     return null;
   }
 
