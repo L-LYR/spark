@@ -18,14 +18,12 @@
 package org.apache.spark.sql.catalyst.expressions
 
 import scala.reflect.ClassTag
-
 import org.scalacheck.Gen
 import org.scalactic.TripleEqualsSupport.Spread
 import org.scalatest.exceptions.TestFailedException
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-
 import org.apache.spark.{SparkConf, SparkFunSuite}
-import org.apache.spark.serializer.JavaSerializer
+import org.apache.spark.serializer.{DummyMetrics, JavaSerializer}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
 import org.apache.spark.sql.catalyst.analysis.ResolveTimeZone
@@ -68,7 +66,7 @@ trait ExpressionEvalHelper extends ScalaCheckDrivenPropertyChecks with PlanTestB
   }
 
   private def prepareEvaluation(expression: Expression): Expression = {
-    val serializer = new JavaSerializer(new SparkConf()).newInstance
+    val serializer = new JavaSerializer(new SparkConf()).newInstance(new DummyMetrics())
     val resolver = ResolveTimeZone(new SQLConf)
     val expr = resolver.resolveTimeZones(expression)
     assert(expr.resolved)
