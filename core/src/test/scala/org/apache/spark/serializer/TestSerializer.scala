@@ -26,7 +26,8 @@ import scala.reflect.ClassTag
  * A serializer implementation that always returns two elements in a deserialization stream.
  */
 class TestSerializer extends Serializer {
-  override def newInstance(): TestSerializerInstance = new TestSerializerInstance
+  override def newInstance(r: SerializerReporter = new DummyMetrics): TestSerializerInstance =
+    new TestSerializerInstance
 }
 
 
