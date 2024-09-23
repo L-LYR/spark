@@ -96,7 +96,10 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
   override def registerShuffle[K, V, C](
       shuffleId: Int,
       dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
-    if (SortShuffleWriter.shouldBypassMergeSort(conf, dependency)) {
+    if (conf.getBoolean("spark.shuffle.offload.enabled", defaultValue = false)) {
+      new OffloadedShuffleHandle[K, V](
+        shuffleId, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
+    } else if (SortShuffleWriter.shouldBypassMergeSort(conf, dependency)) {
       // If there are fewer than spark.shuffle.sort.bypassMergeThreshold partitions and we don't
       // need map-side aggregation, then write numPartitions files directly and just concatenate
       // them at the end. This avoids doing serialization and deserialization twice to merge
@@ -177,6 +180,14 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           metrics,
           context.taskMetrics().inTaskMetrics,
           shuffleExecutorComponents)
+      case offloadedShuffleHandle: OffloadedShuffleHandle[K @unchecked, V @unchecked] =>
+        new SortShuffleWriter(
+          shuffleBlockResolver,
+          offloadedShuffleHandle,
+          mapId,
+          context,
+          shuffleExecutorComponents,
+          offloaded = true)
       case other: BaseShuffleHandle[K @unchecked, V @unchecked, _] =>
         new SortShuffleWriter(
           shuffleBlockResolver, other, mapId, context, shuffleExecutorComponents)
@@ -280,5 +291,15 @@ private[spark] class SerializedShuffleHandle[K, V](
 private[spark] class BypassMergeSortShuffleHandle[K, V](
   shuffleId: Int,
   dependency: ShuffleDependency[K, V, V])
+  extends BaseShuffleHandle(shuffleId, dependency) {
+}
+
+/**
+ * Subclass of [[BaseShuffleHandle]], used to identify when we've chosen to use the
+ * offloaded shuffle.
+ */
+private[spark] class OffloadedShuffleHandle[K, V](
+                                                   shuffleId: Int,
+                                                   dependency: ShuffleDependency[K, V, V])
   extends BaseShuffleHandle(shuffleId, dependency) {
 }

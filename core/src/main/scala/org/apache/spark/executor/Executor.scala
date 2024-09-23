@@ -58,13 +58,13 @@ import org.apache.spark.util.io.ChunkedByteBuffer
  * except in the case of Mesos fine-grained mode.
  */
 private[spark] class Executor(
-    executorId: String,
-    executorHostname: String,
-    env: SparkEnv,
-    userClassPath: Seq[URL] = Nil,
-    isLocal: Boolean = false,
-    uncaughtExceptionHandler: UncaughtExceptionHandler = new SparkUncaughtExceptionHandler,
-    resources: immutable.Map[String, ResourceInformation])
+                               executorId: String,
+                               executorHostname: String,
+                               env: SparkEnv,
+                               userClassPath: Seq[URL] = Nil,
+                               isLocal: Boolean = false,
+                               uncaughtExceptionHandler: UncaughtExceptionHandler = new SparkUncaughtExceptionHandler,
+                               resources: immutable.Map[String, ResourceInformation])
   extends Logging {
 
   logInfo(s"Starting executor ID $executorId on host $executorHostname")
@@ -107,6 +107,9 @@ private[spark] class Executor(
       .setNameFormat("Executor task launch worker-%d")
       .setThreadFactory((r: Runnable) => new UninterruptibleThread(r, "unused"))
       .build()
+    // NOTICE: use newFixedThreadPool instead
+    // val max_threads = conf.get("spark.executor.cores")
+    // Executors.newFixedThreadPool(max_threads, threadFactory).asInstanceOf[ThreadPoolExecutor]
     Executors.newCachedThreadPool(threadFactory).asInstanceOf[ThreadPoolExecutor]
   }
   private val executorSource = new ExecutorSource(threadPool, executorId)
@@ -274,9 +277,10 @@ private[spark] class Executor(
    * Function to kill the running tasks in an executor.
    * This can be called by executor back-ends to kill the
    * tasks instead of taking the JVM down.
+   *
    * @param interruptThread whether to interrupt the task thread
    */
-  def killAllTasks(interruptThread: Boolean, reason: String) : Unit = {
+  def killAllTasks(interruptThread: Boolean, reason: String): Unit = {
     runningTasks.keys().asScala.foreach(t =>
       killTask(t, interruptThread = interruptThread, reason = reason))
   }
@@ -315,8 +319,8 @@ private[spark] class Executor(
   }
 
   class TaskRunner(
-      execBackend: ExecutorBackend,
-      private val taskDescription: TaskDescription)
+                    execBackend: ExecutorBackend,
+                    private val taskDescription: TaskDescription)
     extends Runnable {
 
     val taskId = taskDescription.taskId
@@ -334,7 +338,9 @@ private[spark] class Executor(
     @GuardedBy("TaskRunner.this")
     private var finished = false
 
-    def isFinished: Boolean = synchronized { finished }
+    def isFinished: Boolean = synchronized {
+      finished
+    }
 
     /** How much the JVM process has spent in GC when the task starts to run. */
     @volatile var startGCTime: Long = _
@@ -373,10 +379,10 @@ private[spark] class Executor(
     }
 
     /**
-     *  Utility function to:
+     * Utility function to:
      *    1. Report executor runtime and JVM gc time if possible
-     *    2. Collect accumulator updates
-     *    3. Set the finished flag to true and clear current thread's interrupt status
+     *       2. Collect accumulator updates
+     *       3. Set the finished flag to true and clear current thread's interrupt status
      */
     private def collectAccumulatorsAndResetStatusOnFailure(taskStartTimeNs: Long) = {
       // Report executor runtime and JVM gc time
@@ -609,7 +615,7 @@ private[spark] class Executor(
           execBackend.statusUpdate(taskId, TaskState.KILLED, serializedTK)
 
         case _: InterruptedException | NonFatal(_) if
-            task != null && task.reasonIfKilled.isDefined =>
+          task != null && task.reasonIfKilled.isDefined =>
           val killReason = task.reasonIfKilled.getOrElse("unknown reason")
           logInfo(s"Executor interrupted and killed $taskName (TID $taskId), reason: $killReason")
 
@@ -720,9 +726,9 @@ private[spark] class Executor(
    * if the supervised task never exits.
    */
   private class TaskReaper(
-      taskRunner: TaskRunner,
-      val interruptThread: Boolean,
-      val reason: String)
+                            taskRunner: TaskRunner,
+                            val interruptThread: Boolean,
+                            val reason: String)
     extends Runnable {
 
     private[this] val taskId: Long = taskRunner.taskId
@@ -737,8 +743,11 @@ private[spark] class Executor(
 
     override def run(): Unit = {
       val startTimeNs = System.nanoTime()
+
       def elapsedTimeNs = System.nanoTime() - startTimeNs
+
       def timeoutExceeded(): Boolean = killTimeoutNs > 0 && elapsedTimeNs > killTimeoutNs
+
       try {
         // Only attempt to kill the task once. If interruptThread = false then a second kill
         // attempt would be a no-op and if interruptThread = true then it may not be safe or
