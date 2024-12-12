@@ -269,7 +269,7 @@ class ObjectExpressionsSuite extends SparkFunSuite with ExpressionEvalHelper {
   // by scala values instead of catalyst values.
   private def checkObjectExprEvaluation(
       expression: => Expression, expected: Any, inputRow: InternalRow = EmptyRow): Unit = {
-    val serializer = new JavaSerializer(new SparkConf()).newInstance
+    val serializer = new JavaSerializer(new SparkConf()).newInstance()
     val resolver = ResolveTimeZone(new SQLConf)
     val expr = resolver.resolveTimeZones(serializer.deserialize(serializer.serialize(expression)))
     checkEvaluationWithoutCodegen(expr, expected, inputRow)

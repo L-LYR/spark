@@ -106,7 +106,7 @@ private[spark] class ExternalSorter[K, V, C](
   private val blockManager = SparkEnv.get.blockManager
   private val diskBlockManager = blockManager.diskBlockManager
   private val serializerManager = SparkEnv.get.serializerManager
-  private val serInstance = serializer.newInstance()
+  private val serInstance = serializer.newInstance(context.taskMetrics().inTaskMetrics)
 
   // Use getSizeAsKb (not bytes) to maintain backwards compatibility if no units are provided
   private val fileBufferSize = conf.getSizeAsKb("spark.shuffle.file.buffer", "32k").toInt * 1024

@@ -130,13 +130,14 @@ public class UnsafeShuffleWriter<K, V> extends ShuffleWriter<K, V> {
         SortShuffleManager.MAX_SHUFFLE_OUTPUT_PARTITIONS_FOR_SERIALIZED_MODE() +
         " reduce partitions");
     }
+    logger.info("Use UnsafeShuffleWriter");
     this.blockManager = blockManager;
     this.shuffleBlockResolver = shuffleBlockResolver;
     this.memoryManager = memoryManager;
     this.mapId = mapId;
     final ShuffleDependency<K, V, V> dep = handle.dependency();
     this.shuffleId = dep.shuffleId();
-    this.serializer = dep.serializer().newInstance();
+    this.serializer = dep.serializer().newInstance(taskContext.taskMetrics().inTaskMetrics());
     this.partitioner = dep.partitioner();
     this.writeMetrics = taskContext.taskMetrics().shuffleWriteMetrics();
     this.taskContext = taskContext;

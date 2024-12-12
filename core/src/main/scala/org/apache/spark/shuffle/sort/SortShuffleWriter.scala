@@ -32,6 +32,8 @@ private[spark] class SortShuffleWriter[K, V, C](
     context: TaskContext)
   extends ShuffleWriter[K, V] with Logging {
 
+  logInfo("Use SortShuffleWriter")
+
   private val dep = handle.dependency
 
   private val blockManager = SparkEnv.get.blockManager

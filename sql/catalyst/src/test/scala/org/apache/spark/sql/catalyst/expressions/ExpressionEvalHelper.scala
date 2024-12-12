@@ -49,7 +49,7 @@ trait ExpressionEvalHelper extends GeneratorDrivenPropertyChecks with PlanTestBa
   }
 
   private def prepareEvaluation(expression: Expression): Expression = {
-    val serializer = new JavaSerializer(new SparkConf()).newInstance
+    val serializer = new JavaSerializer(new SparkConf()).newInstance()
     val resolver = ResolveTimeZone(new SQLConf)
     resolver.resolveTimeZones(serializer.deserialize(serializer.serialize(expression)))
   }

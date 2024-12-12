@@ -24,6 +24,7 @@ import javax.annotation.concurrent.NotThreadSafe
 import scala.reflect.ClassTag
 
 import org.apache.spark.annotation.{DeveloperApi, Private}
+import org.apache.spark.executor.InTaskMetrics
 import org.apache.spark.util.NextIterator
 
 /**
@@ -62,7 +63,7 @@ abstract class Serializer {
   }
 
   /** Creates a new [[SerializerInstance]]. */
-  def newInstance(): SerializerInstance
+  def newInstance(inTaskMetrics: InTaskMetrics = new InTaskMetrics()): SerializerInstance
 
   /**
    * :: Private ::

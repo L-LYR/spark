@@ -22,6 +22,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 import scala.reflect.ClassTag;
+import org.apache.spark.executor.InTaskMetrics;
 
 
 /**
@@ -30,7 +31,7 @@ import scala.reflect.ClassTag;
 class TestJavaSerializerImpl extends Serializer {
 
   @Override
-  public SerializerInstance newInstance() {
+  public SerializerInstance newInstance(InTaskMetrics inTaskMetrics) {
     return null;
   }
 

@@ -363,6 +363,9 @@ private[spark] object JsonProtocol {
         ("Block ID" -> id.toString) ~
           ("Status" -> blockStatusToJson(status))
       })
+    val inTaskMetrics: JValue =
+      ("Serialization Time" -> taskMetrics.inTaskMetrics.serializeTime) ~
+        ("Deserialization Time" -> taskMetrics.inTaskMetrics.deserializeTime)
     ("Executor Deserialize Time" -> taskMetrics.executorDeserializeTime) ~
     ("Executor Deserialize CPU Time" -> taskMetrics.executorDeserializeCpuTime) ~
     ("Executor Run Time" -> taskMetrics.executorRunTime) ~
@@ -376,7 +379,8 @@ private[spark] object JsonProtocol {
     ("Shuffle Write Metrics" -> shuffleWriteMetrics) ~
     ("Input Metrics" -> inputMetrics) ~
     ("Output Metrics" -> outputMetrics) ~
-    ("Updated Blocks" -> updatedBlocks)
+    ("Updated Blocks" -> updatedBlocks) ~
+    ("InTask Metrics" -> inTaskMetrics)
   }
 
   def taskEndReasonToJson(taskEndReason: TaskEndReason): JValue = {

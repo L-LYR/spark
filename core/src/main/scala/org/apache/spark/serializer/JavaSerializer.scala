@@ -24,10 +24,11 @@ import scala.reflect.ClassTag
 
 import org.apache.spark.SparkConf
 import org.apache.spark.annotation.DeveloperApi
+import org.apache.spark.executor.InTaskMetrics
 import org.apache.spark.util.{ByteBufferInputStream, ByteBufferOutputStream, Utils}
 
 private[spark] class JavaSerializationStream(
-    out: OutputStream, counterReset: Int, extraDebugInfo: Boolean)
+    out: OutputStream, counterReset: Int, extraDebugInfo: Boolean, inTaskMetrics: InTaskMetrics)
   extends SerializationStream {
   private val objOut = new ObjectOutputStream(out)
   private var counter = 0
@@ -40,7 +41,9 @@ private[spark] class JavaSerializationStream(
    */
   def writeObject[T: ClassTag](t: T): SerializationStream = {
     try {
+      val s = System.nanoTime()
       objOut.writeObject(t)
+      inTaskMetrics.incSerializeTime(System.nanoTime() - s)
     } catch {
       case e: NotSerializableException if extraDebugInfo =>
         throw SerializationDebugger.improveException(t, e)
@@ -53,11 +56,16 @@ private[spark] class JavaSerializationStream(
     this
   }
 
-  def flush() { objOut.flush() }
+  def flush() {
+    val s = System.nanoTime()
+    objOut.flush()
+    inTaskMetrics.incSerializeTime(System.nanoTime() - s)
+  }
   def close() { objOut.close() }
 }
 
-private[spark] class JavaDeserializationStream(in: InputStream, loader: ClassLoader)
+private[spark] class JavaDeserializationStream(
+  in: InputStream, loader: ClassLoader, inTaskMetrics: InTaskMetrics)
   extends DeserializationStream {
 
   private val objIn = new ObjectInputStream(in) {
@@ -72,7 +80,12 @@ private[spark] class JavaDeserializationStream(in: InputStream, loader: ClassLoa
       }
   }
 
-  def readObject[T: ClassTag](): T = objIn.readObject().asInstanceOf[T]
+  def readObject[T: ClassTag](): T = {
+    val s = System.nanoTime()
+    val obj = objIn.readObject().asInstanceOf[T]
+    inTaskMetrics.incDeserializeTime(System.nanoTime() - s)
+    obj
+  }
   def close() { objIn.close() }
 }
 
@@ -91,7 +104,7 @@ private object JavaDeserializationStream {
 }
 
 private[spark] class JavaSerializerInstance(
-    counterReset: Int, extraDebugInfo: Boolean, defaultClassLoader: ClassLoader)
+    counterReset: Int, extraDebugInfo: Boolean, defaultClassLoader: ClassLoader, inTaskMetrics: InTaskMetrics)
   extends SerializerInstance {
 
   override def serialize[T: ClassTag](t: T): ByteBuffer = {
@@ -115,15 +128,15 @@ private[spark] class JavaSerializerInstance(
   }
 
   override def serializeStream(s: OutputStream): SerializationStream = {
-    new JavaSerializationStream(s, counterReset, extraDebugInfo)
+    new JavaSerializationStream(s, counterReset, extraDebugInfo, inTaskMetrics)
   }
 
   override def deserializeStream(s: InputStream): DeserializationStream = {
-    new JavaDeserializationStream(s, defaultClassLoader)
+    new JavaDeserializationStream(s, defaultClassLoader, inTaskMetrics)
   }
 
   def deserializeStream(s: InputStream, loader: ClassLoader): DeserializationStream = {
-    new JavaDeserializationStream(s, loader)
+    new JavaDeserializationStream(s, loader, inTaskMetrics)
   }
 }
 
@@ -142,9 +155,10 @@ class JavaSerializer(conf: SparkConf) extends Serializer with Externalizable {
 
   protected def this() = this(new SparkConf())  // For deserialization only
 
-  override def newInstance(): SerializerInstance = {
+  override def newInstance(
+    inTaskMetrics: InTaskMetrics = new InTaskMetrics()): SerializerInstance = {
     val classLoader = defaultClassLoader.getOrElse(Thread.currentThread.getContextClassLoader)
-    new JavaSerializerInstance(counterReset, extraDebugInfo, classLoader)
+    new JavaSerializerInstance(counterReset, extraDebugInfo, classLoader, inTaskMetrics)
   }
 
   override def writeExternal(out: ObjectOutput): Unit = Utils.tryOrIOException {

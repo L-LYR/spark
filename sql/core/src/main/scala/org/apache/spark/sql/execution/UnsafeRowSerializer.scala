@@ -19,11 +19,9 @@ package org.apache.spark.sql.execution
 
 import java.io._
 import java.nio.ByteBuffer
-
 import scala.reflect.ClassTag
-
 import com.google.common.io.ByteStreams
-
+import org.apache.spark.executor.InTaskMetrics
 import org.apache.spark.serializer.{DeserializationStream, SerializationStream, Serializer, SerializerInstance}
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.sql.execution.metric.SQLMetric
@@ -43,7 +41,7 @@ import org.apache.spark.unsafe.Platform
 class UnsafeRowSerializer(
     numFields: Int,
     dataSize: SQLMetric = null) extends Serializer with Serializable {
-  override def newInstance(): SerializerInstance =
+  override def newInstance(inTaskMetrics: InTaskMetrics = new InTaskMetrics()): SerializerInstance =
     new UnsafeRowSerializerInstance(numFields, dataSize)
   override def supportsRelocationOfSerializedObjects: Boolean = true
 }
