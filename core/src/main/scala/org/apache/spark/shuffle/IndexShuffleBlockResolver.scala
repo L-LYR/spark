@@ -139,6 +139,7 @@ private[spark] class IndexShuffleBlockResolver(
       lengths: Array[Long],
       dataTmp: File): Unit = {
     val indexFile = getIndexFile(shuffleId, mapId)
+//    logInfo(s"IndexFile: ${indexFile.getPath()}");
     val indexTmp = Utils.tempFileWith(indexFile)
     try {
       val dataFile = getDataFile(shuffleId, mapId)

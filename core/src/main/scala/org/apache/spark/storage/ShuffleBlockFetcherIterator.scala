@@ -355,6 +355,11 @@ final class ShuffleBlockFetcherIterator(
 
     // Split local and remote blocks.
     val remoteRequests = splitLocalRemoteBlocks()
+
+//    remoteRequests.iterator.foreach(f => {
+//      val s = f.blocks.iterator.map(d => d._1.name + "-" + d._2.toString).mkString(",")
+//      logInfo(s"fetch ${s} from ${f.address}")
+//    })
     // Add the remote requests into our queue in a random order
     fetchRequests ++= Utils.randomize(remoteRequests)
     assert ((0 == reqsInFlight) == (0 == bytesInFlight),

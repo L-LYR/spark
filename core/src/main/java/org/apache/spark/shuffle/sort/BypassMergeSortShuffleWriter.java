@@ -141,6 +141,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
         blockManager.diskBlockManager().createTempShuffleBlock();
       final File file = tempShuffleBlockIdPlusFile._2();
       final BlockId blockId = tempShuffleBlockIdPlusFile._1();
+//      logger.info("BlockId {}", blockId.name());
       partitionWriters[i] =
         blockManager.getDiskWriter(blockId, file, serInstance, fileBufferSize, writeMetrics);
     }
@@ -148,10 +149,14 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     // the disk, and can take a long time in aggregate when we open many files, so should be
     // included in the shuffle write time.
     writeMetrics.incWriteTime(System.nanoTime() - openStartTime);
-
+//    boolean print_type = true;
     while (records.hasNext()) {
       final Product2<K, V> record = records.next();
       final K key = record._1();
+//      if (print_type) {
+//        logger.info("K: " + record._1().getClass().getName() + " V: " + record._2().getClass().getName());
+//        print_type = false;
+//      }
       partitionWriters[partitioner.getPartition(key)].write(key, record._2());
     }
 
@@ -162,6 +167,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     }
 
     File output = shuffleBlockResolver.getDataFile(shuffleId, mapId);
+//    logger.info("output file: {}", output.getPath());
     File tmp = Utils.tempFileWith(output);
     try {
       partitionLengths = writePartitionedFile(tmp);
