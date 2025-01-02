@@ -34,6 +34,13 @@
   <url>http://spark.apache.org/</url>
   <dependencies>
     <dependency>
+      <groupId>pdsl</groupId>
+      <artifactId>dpx</artifactId>
+      <version>1.0-SNAPSHOT</version>
+      <scope>system</scope>
+      <systemPath>/home/lsc/dpx/target/dpx-1.0-SNAPSHOT-jar-with-dependencies.jar</systemPath>
+    </dependency>
+    <dependency>
       <groupId>com.thoughtworks.paranamer</groupId>
       <artifactId>paranamer</artifactId>
     </dependency>

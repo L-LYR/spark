@@ -18,11 +18,14 @@
 package org.apache.spark.shuffle
 
 import org.apache.spark._
-import org.apache.spark.internal.{config, Logging}
+import org.apache.spark.internal.{Logging, config}
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
 import org.apache.spark.util.CompletionIterator
 import org.apache.spark.util.collection.ExternalSorter
+import pdsl.dpx.NaiveTransEnv
+
+import java.io.{BufferedInputStream, File, FileInputStream}
 
 /**
  * Fetches and reads the partitions in range [startPartition, endPartition) from a shuffle by
@@ -42,29 +45,45 @@ private[spark] class BlockStoreShuffleReader[K, C](
 
   /** Read the combined key-values for this reduce task */
   override def read(): Iterator[Product2[K, C]] = {
-//    logInfo(s"reader from ${startPartition}-${endPartition}")
-    val wrappedStreams = new ShuffleBlockFetcherIterator(
-      context,
-      blockManager.shuffleClient,
-      blockManager,
-      mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition),
-      serializerManager.wrapStream,
-      // Note: we use getSizeAsMb when no suffix is provided for backwards compatibility
-      SparkEnv.get.conf.getSizeAsMb("spark.reducer.maxSizeInFlight", "48m") * 1024 * 1024,
-      SparkEnv.get.conf.getInt("spark.reducer.maxReqsInFlight", Int.MaxValue),
-      SparkEnv.get.conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS),
-      SparkEnv.get.conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM),
-      SparkEnv.get.conf.getBoolean("spark.shuffle.detectCorrupt", true))
-
+    logInfo(s"reader from ${startPartition}-${endPartition}")
+//    val wrappedStreams = new ShuffleBlockFetcherIterator(
+//      context,
+//      blockManager.shuffleClient,
+//      blockManager,
+//      mapOutputTracker.getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition),
+//      serializerManager.wrapStream,
+//      // Note: we use getSizeAsMb when no suffix is provided for backwards compatibility
+//      SparkEnv.get.conf.getSizeAsMb("spark.reducer.maxSizeInFlight", "48m") * 1024 * 1024,
+//      SparkEnv.get.conf.getInt("spark.reducer.maxReqsInFlight", Int.MaxValue),
+//      SparkEnv.get.conf.get(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS),
+//      SparkEnv.get.conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM),
+//      SparkEnv.get.conf.getBoolean("spark.shuffle.detectCorrupt", true))
+    // TODO: wait mount fs or wait for flush all
+    NaiveTransEnv.WaitForSpillDone();
     val serializerInstance = dep.serializer.newInstance()
 
     // Create a key/value iterator for each stream
-    val recordIter = wrappedStreams.flatMap { case (blockId, wrappedStream) =>
-      // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
-      // NextIterator. The NextIterator makes sure that close() is called on the
-      // underlying InputStream when all records have been read.
-      serializerInstance.deserializeStream(wrappedStream).asKeyValueIterator
+//    val recordIter = wrappedStreams.flatMap { case (blockId, wrappedStream) =>
+//      // Note: the asKeyValueIterator below wraps a key/value iterator inside of a
+//      // NextIterator. The NextIterator makes sure that close() is called on the
+//      // underlying InputStream when all records have been read.
+//      serializerInstance.deserializeStream(wrappedStream).asKeyValueIterator
+//    }
+    val files = if (startPartition % 2 == 1) {
+      Array(
+        s"/home/lsc/dpx/.test_spill/p${startPartition}",
+        s"/home/lsc/dpx/.test_spill/p${startPartition - 1}"
+      )
+    } else {
+      Array(
+        s"/home/lsc/dpx/.test_spill/p${startPartition}",
+        s"/home/lsc/dpx/.test_spill/p${startPartition + 1}"
+      )
     }
+    val recordIter = files.iterator.map(fn => new File(fn))
+      .filter(f => f.length() > 0).map(f => new FileInputStream(f))
+      .flatMap(s => serializerInstance.deserializeStream(s).asKeyValueIterator)
+
 
     // Update the context task metrics for each record read.
     val readMetrics = context.taskMetrics.createTempShuffleReadMetrics()

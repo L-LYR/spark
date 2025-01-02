@@ -37,6 +37,8 @@ import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.util.{ThreadUtils, Utils}
 
+import pdsl.dpx.NaiveTransEnv;
+
 private[spark] class CoarseGrainedExecutorBackend(
     override val rpcEnv: RpcEnv,
     driverUrl: String,
@@ -184,6 +186,16 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       userClassPath: Seq[URL]) {
 
     Utils.initDaemon(log)
+    if (hostname == "192.168.200.20") {
+      NaiveTransEnv.Initialize("0000:99:00.1", "/home/lsc/dpx/.test_spill")
+    } else if (hostname == "192.168.200.21") {
+      NaiveTransEnv.Initialize("0000:43:00.1", "/home/lsc/dpx/.test_spill")
+    } else {
+      // scalastyle:off println
+      System.err.println("Unknown host")
+      // scalastyle:on println
+      System.exit(-1)
+    }
 
     SparkHadoopUtil.get.runAsSparkUser { () =>
       // Debug code
@@ -212,6 +224,9 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
         } else {
           driverConf.set(key, value)
         }
+        // scalastyle:off println
+        System.err.println(s"${key}: ${value}")
+        // scalastyle:on println
       }
 
       cfg.hadoopDelegationCreds.foreach { tokens =>
@@ -228,6 +243,8 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       }
       env.rpcEnv.awaitTermination()
     }
+
+    NaiveTransEnv.Destroy();
   }
 
   def main(args: Array[String]) {

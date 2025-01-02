@@ -282,7 +282,7 @@ object SparkEnv extends Logging {
 
     val serializer = instantiateClassFromConf[Serializer](
       "spark.serializer", "org.apache.spark.serializer.JavaSerializer")
-    logDebug(s"Using serializer: ${serializer.getClass}")
+    logInfo(s"Using serializer: ${serializer.getClass}")
 
     val serializerManager = new SerializerManager(serializer, conf, ioEncryptionKey)
 
