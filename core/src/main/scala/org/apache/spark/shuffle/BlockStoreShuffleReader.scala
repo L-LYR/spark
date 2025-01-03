@@ -59,7 +59,9 @@ private[spark] class BlockStoreShuffleReader[K, C](
 //      SparkEnv.get.conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM),
 //      SparkEnv.get.conf.getBoolean("spark.shuffle.detectCorrupt", true))
     // TODO: wait mount fs or wait for flush all
+    val shuffleWaitStart = System.nanoTime();
     NaiveTransEnv.WaitForSpillDone();
+    context.taskMetrics().shuffleReadMetrics.incFetchWaitTime(System.nanoTime() - shuffleWaitStart);
     val serializerInstance = dep.serializer.newInstance()
 
     // Create a key/value iterator for each stream
@@ -81,7 +83,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
       )
     }
     val recordIter = files.iterator.map(fn => new File(fn))
-      .filter(f => f.length() > 0).map(f => new FileInputStream(f))
+      .filter(f => f.length() > 0).map(f => new BufferedInputStream(new FileInputStream(f)))
       .flatMap(s => serializerInstance.deserializeStream(s).asKeyValueIterator)
 
 
