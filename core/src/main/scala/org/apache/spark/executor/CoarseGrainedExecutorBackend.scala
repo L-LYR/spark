@@ -200,9 +200,10 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       System.exit(-1)
     }
 
-    Serde.Initialize(Options.defaultOptions);
-    Serde.Register(new TypeTraits[java.lang.String]{});
-    Serde.Register(new TypeTraits[java.lang.Integer]{});
+    Serde.Initialize(Options.defaultOptions)
+    Serde.Register(new TypeTraits[java.lang.String]{})
+    Serde.Register(new TypeTraits[java.lang.Integer]{})
+    Serde.ShowRegisteredClass()
 
     SparkHadoopUtil.get.runAsSparkUser { () =>
       // Debug code
@@ -251,8 +252,8 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       env.rpcEnv.awaitTermination()
     }
 
-    Serde.Destroy();
-    NaiveTransEnv.Destroy();
+    Serde.Destroy()
+    NaiveTransEnv.Destroy()
   }
 
   def main(args: Array[String]) {

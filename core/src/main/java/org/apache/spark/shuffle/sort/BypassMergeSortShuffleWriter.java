@@ -168,6 +168,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 //    ArrayList<Integer> hashcodes = new ArrayList<>();
 
 //    final File file = new File("/home/lsc/dpx/.test_spill/t" + Integer.toString(mapId));
+//    final FileOutputStream fos = new FileOutputStream(file);
+//    final BufferedOutputStream bos = new BufferedOutputStream(fos);
+//    final SerdeOutputStream sos2 = new SerdeOutputStream(bos);
 ////      logger.info("BlockId {}", blockId.name());
 //    final DiskBlockObjectWriter w =
 //        blockManager.getDiskWriter(blockId, file, serInstance, fileBufferSize, writeMetrics);
@@ -190,6 +193,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       partitionLengths[p] += bs.size() - pre;
 //      hashcodes.add(p);
 
+//      sos2.writeObject(key);
+//      sos2.writeObject(value);
+
 //      w.write(key, value);
     }
 //    offsets.add(bs.size());
@@ -201,6 +207,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
     sos.flush();
     sos.close();
+
+//    sos2.flush();
+//    sos2.close();
 
     final long shuffleSpillStart = System.nanoTime();
     NaiveTransEnv.Spill(result);
