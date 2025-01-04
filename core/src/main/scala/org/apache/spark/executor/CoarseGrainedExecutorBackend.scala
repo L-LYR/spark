@@ -37,7 +37,10 @@ import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.util.{ThreadUtils, Utils}
 
-import pdsl.dpx.NaiveTransEnv;
+import pdsl.dpx.NaiveTransEnv
+import pdsl.dpx.Serde
+import pdsl.dpx.Options
+import pdsl.dpx.`type`.TypeTraits;
 
 private[spark] class CoarseGrainedExecutorBackend(
     override val rpcEnv: RpcEnv,
@@ -197,6 +200,10 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       System.exit(-1)
     }
 
+    Serde.Initialize(Options.defaultOptions);
+    Serde.Register(new TypeTraits[java.lang.String]{});
+    Serde.Register(new TypeTraits[java.lang.Integer]{});
+
     SparkHadoopUtil.get.runAsSparkUser { () =>
       // Debug code
       Utils.checkHost(hostname)
@@ -244,6 +251,7 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
       env.rpcEnv.awaitTermination()
     }
 
+    Serde.Destroy();
     NaiveTransEnv.Destroy();
   }
 

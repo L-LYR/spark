@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 import org.apache.spark.serializer.SerializationStream;
+import pdsl.dpx.SerdeOutputStream;
 import scala.None$;
 import scala.Option;
 import scala.Product2;
@@ -138,8 +139,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
       return;
     }
-    NaiveTransEnv.TriggerSpillStart(true);
-    final SerializerInstance serInstance = serializer.newInstance(inTaskMetrics);
+    NaiveTransEnv.TriggerSpillStart(false);
+//    final SerializerInstance serInstance = serializer.newInstance(inTaskMetrics);
 //    final long openStartTime = System.nanoTime();
 //    partitionWriters = new DiskBlockObjectWriter[numPartitions];
 //    partitionWriterSegments = new FileSegment[numPartitions];
@@ -161,8 +162,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     ByteArrayOutputStream bs = new ByteArrayOutputStream();
 
 //    final BlockId blockId = new TestBlockId("test" + Integer.toString(mapId));
-
-    SerializationStream ss = serInstance.serializeStream(bs);
+    SerdeOutputStream sos = new SerdeOutputStream(bs);
+//    SerializationStream ss = serInstance.serializeStream(bs);
 //    ArrayList<Integer> offsets = new ArrayList<>();
 //    ArrayList<Integer> hashcodes = new ArrayList<>();
 
@@ -183,8 +184,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       int p = partitioner.getPartition(key);
 //      offsets.add(bs.size());
       int pre = bs.size();
-      ss.writeKey(key, scala.reflect.ClassTag$.MODULE$.apply(key.getClass()));
-      ss.writeValue(value, scala.reflect.ClassTag$.MODULE$.apply(value.getClass()));
+      sos.writeObject(key);
+      sos.writeObject(value);
 //      partitionLengths[p] += bs.size() - offsets.get(offsets.size() - 1);
       partitionLengths[p] += bs.size() - pre;
 //      hashcodes.add(p);
@@ -198,8 +199,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     final byte[] result = bs.toByteArray();
 //    logger.info("{} {} {} {}", result[0], result[1], result[2], result[3]);
 
-    ss.flush();
-    ss.close();
+    sos.flush();
+    sos.close();
 
     final long shuffleSpillStart = System.nanoTime();
     NaiveTransEnv.Spill(result);

@@ -21,11 +21,11 @@ import org.apache.spark._
 import org.apache.spark.internal.{Logging, config}
 import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
-import org.apache.spark.util.CompletionIterator
+import org.apache.spark.util.{CompletionIterator, NextIterator}
 import org.apache.spark.util.collection.ExternalSorter
-import pdsl.dpx.NaiveTransEnv
+import pdsl.dpx.{NaiveTransEnv, SerdeInputStream}
 
-import java.io.{BufferedInputStream, File, FileInputStream}
+import java.io.{BufferedInputStream, EOFException, File, FileInputStream}
 
 /**
  * Fetches and reads the partitions in range [startPartition, endPartition) from a shuffle by
@@ -83,8 +83,22 @@ private[spark] class BlockStoreShuffleReader[K, C](
       )
     }
     val recordIter = files.iterator.map(fn => new File(fn))
-      .filter(f => f.length() > 0).map(f => new BufferedInputStream(new FileInputStream(f)))
-      .flatMap(s => serializerInstance.deserializeStream(s).asKeyValueIterator)
+      .filter(f => f.length() > 0).map(
+        f => new SerdeInputStream(new BufferedInputStream(new FileInputStream(f))))
+      .flatMap(s => new NextIterator [(Any, Any)] {
+
+        override protected def getNext() = {
+          try {
+            (s.readObject(classOf[Any]), s.readObject(classOf[Any]))
+          } catch {
+            case eof: EOFException => null
+          }
+        }
+
+        override protected def close(): Unit = {
+          s.close()
+        }
+      })
 
 
     // Update the context task metrics for each record read.
