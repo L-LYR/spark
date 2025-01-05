@@ -84,14 +84,16 @@ private[spark] class BlockStoreShuffleReader[K, C](
     }
     val recordIter = files.iterator.map(fn => new File(fn))
       .filter(f => f.length() > 0).map(
-        f => new SerdeInputStream(new BufferedInputStream(new FileInputStream(f))))
+        f => new SerdeInputStream(new BufferedInputStream(new FileInputStream(f), 1024 * 1024)))
       .flatMap(s => new NextIterator [(Any, Any)] {
 
         override protected def getNext() = {
           try {
             (s.readObject(classOf[Any]), s.readObject(classOf[Any]))
           } catch {
-            case eof: EOFException => null
+            case eof: EOFException =>
+              finished = true
+              null
           }
         }
 
