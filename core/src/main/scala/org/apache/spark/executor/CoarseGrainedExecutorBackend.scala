@@ -34,7 +34,7 @@ import org.apache.spark.scheduler.{ExecutorLossReason, TaskDescription}
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.util.{ThreadUtils, Utils}
-import pdsl.dpx.{Options, PipelineTransEnv, Serde}
+import pdsl.dpx.{Options, TransEnv, Serde}
 import pdsl.dpx.`type`.TypeTraits;
 
 private[spark] class CoarseGrainedExecutorBackend(
@@ -185,9 +185,9 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
 
     Utils.initDaemon(log)
     if (hostname == "192.168.200.20") {
-      PipelineTransEnv.Initialize("0000:99:00.1", "/home/lsc/dpx/.test_spill")
+      TransEnv.Initialize("0000:99:00.1", "/home/lsc/dpx/.test_spill", "/dev/nvme3n1p1")
     } else if (hostname == "192.168.200.21") {
-      PipelineTransEnv.Initialize("0000:43:00.1", "/home/lsc/dpx/.test_spill")
+      TransEnv.Initialize("0000:43:00.1", "/home/lsc/dpx/.test_spill", "/dev/nvme2n1p1")
     } else {
       // scalastyle:off println
       System.err.println("Unknown host")
@@ -248,7 +248,7 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
     }
 
     Serde.Destroy()
-    PipelineTransEnv.Destroy()
+    TransEnv.Destroy()
   }
 
   def main(args: Array[String]) {

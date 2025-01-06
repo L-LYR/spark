@@ -50,7 +50,7 @@ import org.apache.spark.util.Utils;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
 
-import pdsl.dpx.PipelineTransEnv;
+import pdsl.dpx.TransEnv;
 import pdsl.dpx.Serde;
 
 /**
@@ -139,7 +139,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
       return;
     }
-    PipelineTransEnv.TriggerSpillStart();
+    TransEnv.TriggerSpillStart();
 //    final SerializerInstance serInstance = serializer.newInstance(inTaskMetrics);
 //    final long openStartTime = System.nanoTime();
 //    partitionWriters = new DiskBlockObjectWriter[numPartitions];
@@ -191,7 +191,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       inTaskMetrics.incSerializeTime(System.nanoTime() - spillSerializeStart);
 
       final long spillShuffleStart = System.nanoTime();
-      PipelineTransEnv.Append(p, k, v, !records.hasNext());
+      TransEnv.Append(p, k, v, !records.hasNext());
       writeMetrics.incWriteTime(System.nanoTime() - spillShuffleStart);
       partitionLengths[p] += k.length + v.length;
 //      hashcodes.add(p);
