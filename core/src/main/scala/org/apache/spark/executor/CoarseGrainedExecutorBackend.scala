@@ -21,11 +21,9 @@ import java.net.URL
 import java.nio.ByteBuffer
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
-
 import scala.collection.mutable
 import scala.util.{Failure, Success}
 import scala.util.control.NonFatal
-
 import org.apache.spark._
 import org.apache.spark.TaskState.TaskState
 import org.apache.spark.deploy.SparkHadoopUtil
@@ -36,10 +34,7 @@ import org.apache.spark.scheduler.{ExecutorLossReason, TaskDescription}
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.util.{ThreadUtils, Utils}
-
-import pdsl.dpx.NaiveTransEnv
-import pdsl.dpx.Serde
-import pdsl.dpx.Options
+import pdsl.dpx.{Options, PipelineTransEnv, Serde}
 import pdsl.dpx.`type`.TypeTraits;
 
 private[spark] class CoarseGrainedExecutorBackend(
@@ -190,9 +185,9 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
 
     Utils.initDaemon(log)
     if (hostname == "192.168.200.20") {
-      NaiveTransEnv.Initialize("0000:99:00.1", "/home/lsc/dpx/.test_spill")
+      PipelineTransEnv.Initialize("0000:99:00.1", "/home/lsc/dpx/.test_spill")
     } else if (hostname == "192.168.200.21") {
-      NaiveTransEnv.Initialize("0000:43:00.1", "/home/lsc/dpx/.test_spill")
+      PipelineTransEnv.Initialize("0000:43:00.1", "/home/lsc/dpx/.test_spill")
     } else {
       // scalastyle:off println
       System.err.println("Unknown host")
@@ -253,7 +248,7 @@ private[spark] object CoarseGrainedExecutorBackend extends Logging {
     }
 
     Serde.Destroy()
-    NaiveTransEnv.Destroy()
+    PipelineTransEnv.Destroy()
   }
 
   def main(args: Array[String]) {

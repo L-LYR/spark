@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 import org.apache.spark.serializer.SerializationStream;
-import pdsl.dpx.SerdeOutputStream;
 import scala.None$;
 import scala.Option;
 import scala.Product2;
@@ -51,7 +50,8 @@ import org.apache.spark.util.Utils;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
 
-import pdsl.dpx.NaiveTransEnv;
+import pdsl.dpx.PipelineTransEnv;
+import pdsl.dpx.Serde;
 
 /**
  * This class implements sort-based shuffle's hash-style shuffle fallback path. This write path
@@ -139,7 +139,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
       return;
     }
-    NaiveTransEnv.TriggerSpillStart(false);
+    PipelineTransEnv.TriggerSpillStart();
 //    final SerializerInstance serInstance = serializer.newInstance(inTaskMetrics);
 //    final long openStartTime = System.nanoTime();
 //    partitionWriters = new DiskBlockObjectWriter[numPartitions];
@@ -159,10 +159,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 //    writeMetrics.incWriteTime(System.nanoTime() - openStartTime);
     boolean print_type = true;
     long[] partitionLengths = new long[numPartitions];
-    ByteArrayOutputStream bs = new ByteArrayOutputStream();
 
 //    final BlockId blockId = new TestBlockId("test" + Integer.toString(mapId));
-    SerdeOutputStream sos = new SerdeOutputStream(bs);
 //    SerializationStream ss = serInstance.serializeStream(bs);
 //    ArrayList<Integer> offsets = new ArrayList<>();
 //    ArrayList<Integer> hashcodes = new ArrayList<>();
@@ -174,7 +172,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 ////      logger.info("BlockId {}", blockId.name());
 //    final DiskBlockObjectWriter w =
 //        blockManager.getDiskWriter(blockId, file, serInstance, fileBufferSize, writeMetrics);
-
+    Serde sd = new Serde();
     while (records.hasNext()) {
       final Product2<K, V> record = records.next();
       final K key = record._1();
@@ -186,11 +184,16 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 //      partitionWriters[partitioner.getPartition(key)].write(key, record._2());
       int p = partitioner.getPartition(key);
 //      offsets.add(bs.size());
-      int pre = bs.size();
-      sos.writeObject(key);
-      sos.writeObject(value);
 //      partitionLengths[p] += bs.size() - offsets.get(offsets.size() - 1);
-      partitionLengths[p] += bs.size() - pre;
+      final long spillSerializeStart = System.nanoTime();
+      final byte[] k = sd.Serialize(key);
+      final byte[] v = sd.Serialize(value);
+      inTaskMetrics.incSerializeTime(System.nanoTime() - spillSerializeStart);
+
+      final long spillShuffleStart = System.nanoTime();
+      PipelineTransEnv.Append(p, k, v, !records.hasNext());
+      writeMetrics.incWriteTime(System.nanoTime() - spillShuffleStart);
+      partitionLengths[p] += k.length + v.length;
 //      hashcodes.add(p);
 
 //      sos2.writeObject(key);
@@ -202,18 +205,10 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
 //    logger.info("{} records", hashcodes.size());
 //    w.commitAndGet();
-    final byte[] result = bs.toByteArray();
 //    logger.info("{} {} {} {}", result[0], result[1], result[2], result[3]);
-
-    sos.flush();
-    sos.close();
 
 //    sos2.flush();
 //    sos2.close();
-
-    final long shuffleSpillStart = System.nanoTime();
-    NaiveTransEnv.Spill(result);
-    writeMetrics.incWriteTime(System.nanoTime() - shuffleSpillStart);
 
 //    for (int i = 0; i < numPartitions; i++) {
 //      final DiskBlockObjectWriter writer = partitionWriters[i];
