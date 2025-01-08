@@ -23,7 +23,7 @@ import org.apache.spark.serializer.SerializerManager
 import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
 import org.apache.spark.util.{CompletionIterator, NextIterator}
 import org.apache.spark.util.collection.ExternalSorter
-import pdsl.dpx.{NaiveTransEnv, PipelineTransEnv, SerdeInputStream}
+import pdsl.dpx.{TransEnv, SerdeInputStream}
 
 import java.io.{BufferedInputStream, EOFException, File, FileInputStream}
 import org.apache.spark.io.{ReadAheadInputStream, NioBufferedFileInputStream}
@@ -61,7 +61,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
 //      SparkEnv.get.conf.getBoolean("spark.shuffle.detectCorrupt", true))
     // TODO: wait mount fs or wait for flush all
     val shuffleWaitStart = System.nanoTime();
-    PipelineTransEnv.WaitForSpillDone();
+    TransEnv.WaitForSpillDone();
     context.taskMetrics().shuffleReadMetrics.incFetchWaitTime(System.nanoTime() - shuffleWaitStart);
     val serializerInstance = dep.serializer.newInstance()
 
