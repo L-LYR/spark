@@ -31,6 +31,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.serializer._
 import org.apache.spark.storage.{BlockId, DiskBlockObjectWriter}
 
+import pdsl.dpx.Serde
+
 /**
  * Sorts and potentially merges a number of key-value pairs of type (K, V) to produce key-combiner
  * pairs of type (K, C). Uses a Partitioner to first group the keys into partitions, and then
@@ -106,6 +108,7 @@ private[spark] class ExternalSorter[K, V, C](
   private val blockManager = SparkEnv.get.blockManager
   private val diskBlockManager = blockManager.diskBlockManager
   private val serializerManager = SparkEnv.get.serializerManager
+  logInfo(s"use ${serializer.getClass.getName}")
   private val serInstance = serializer.newInstance(context.taskMetrics().inTaskMetrics)
 
   // Use getSizeAsKb (not bytes) to maintain backwards compatibility if no units are provided

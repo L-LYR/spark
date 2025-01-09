@@ -19,14 +19,14 @@ package org.apache.spark.shuffle
 
 import org.apache.spark._
 import org.apache.spark.internal.{Logging, config}
-import org.apache.spark.serializer.SerializerManager
+import org.apache.spark.serializer.{SerdeSerializer, SerializerManager}
 import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
 import org.apache.spark.util.{CompletionIterator, NextIterator}
 import org.apache.spark.util.collection.ExternalSorter
-import pdsl.dpx.{TransEnv, SerdeInputStream}
+import pdsl.dpx.{SerdeInputStream, TransEnv}
 
 import java.io.{BufferedInputStream, EOFException, File, FileInputStream}
-import org.apache.spark.io.{ReadAheadInputStream, NioBufferedFileInputStream}
+import org.apache.spark.io.{NioBufferedFileInputStream, ReadAheadInputStream}
 
 /**
  * Fetches and reads the partitions in range [startPartition, endPartition) from a shuffle by
@@ -83,10 +83,11 @@ private[spark] class BlockStoreShuffleReader[K, C](
         s"/home/lsc/dpx/.test_spill/p${startPartition + 1}"
       )
     }
+    val bufferSize = 32 * 1024 * 1024; // 1 MB
     val recordIter = files.iterator.map(fn => new File(fn))
       .filter(f => f.length() > 0).map(
         f => new SerdeInputStream(
-          new ReadAheadInputStream(new NioBufferedFileInputStream(f, 1024 * 1024), 1024 * 1024)))
+          new ReadAheadInputStream(new NioBufferedFileInputStream(f, bufferSize), bufferSize)))
       .flatMap(s => new NextIterator [(Any, Any)] {
 
         override protected def getNext() = {
@@ -138,7 +139,8 @@ private[spark] class BlockStoreShuffleReader[K, C](
       case Some(keyOrd: Ordering[K]) =>
         // Create an ExternalSorter to sort the data.
         val sorter =
-          new ExternalSorter[K, C, C](context, ordering = Some(keyOrd), serializer = dep.serializer)
+          new ExternalSorter[K, C, C](context, ordering = Some(keyOrd),
+            serializer = new SerdeSerializer())
         sorter.insertAll(aggregatedIter)
         context.taskMetrics().incMemoryBytesSpilled(sorter.memoryBytesSpilled)
         context.taskMetrics().incDiskBytesSpilled(sorter.diskBytesSpilled)
