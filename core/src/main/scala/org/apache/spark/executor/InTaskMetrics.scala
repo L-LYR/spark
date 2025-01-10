@@ -20,12 +20,19 @@ package org.apache.spark.executor
 import org.apache.spark.util.LongAccumulator
 
 class InTaskMetrics private[spark]() extends Serializable {
+  private[executor] val _spillTime = new LongAccumulator
   private[executor] val _deserializeTime = new LongAccumulator
   private[executor] val _serializeTime = new LongAccumulator
 
   def deserializeTime: Long = _deserializeTime.sum
 
   def serializeTime: Long = _serializeTime.sum
+
+  def spillTime: Long = _spillTime.sum
+
+  private[spark] def incSpillTime(v: Long): Unit = {
+    _spillTime.add(v)
+  }
 
   private[spark] def incDeserializeTime(v: Long): Unit = {
     _deserializeTime.add(v)
