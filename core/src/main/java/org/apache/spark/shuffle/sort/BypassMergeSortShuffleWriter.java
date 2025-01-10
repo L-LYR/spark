@@ -21,22 +21,22 @@ import java.io.*;
 import java.util.ArrayList;
 import javax.annotation.Nullable;
 
+import org.apache.spark.*;
 import org.apache.spark.serializer.SerializationStream;
-import scala.None$;
-import scala.Option;
-import scala.Product2;
-import scala.Tuple2;
+import org.apache.spark.util.collection.PartitionedAppendOnlyMap;
+import org.apache.spark.util.collection.WritablePartitionedIterator;
+import org.glassfish.jersey.internal.util.collection.KeyComparator;
+import pdsl.dpx.type.TypeTraits;
+import scala.*;
+import scala.Boolean;
 import scala.collection.Iterator;
+import java.util.Comparator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closeables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.spark.Partitioner;
-import org.apache.spark.ShuffleDependency;
-import org.apache.spark.SparkConf;
-import org.apache.spark.TaskContext;
 import org.apache.spark.executor.ShuffleWriteMetrics;
 import org.apache.spark.executor.InTaskMetrics;
 import org.apache.spark.scheduler.MapStatus;
@@ -47,6 +47,7 @@ import org.apache.spark.shuffle.IndexShuffleBlockResolver;
 import org.apache.spark.shuffle.ShuffleWriter;
 import org.apache.spark.storage.*;
 import org.apache.spark.util.Utils;
+import scala.math.Ordering;
 import scala.reflect.ClassTag;
 import scala.reflect.ClassTag$;
 
@@ -75,7 +76,7 @@ import pdsl.dpx.Serde;
  * <p>
  * There have been proposals to completely remove this code path; see SPARK-6026 for details.
  */
-final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
+final class BypassMergeSortShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
 
   private static final ClassTag<Object> OBJECT_CLASS_TAG = ClassTag$.MODULE$.Object();
 
@@ -89,6 +90,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
   private final ShuffleWriteMetrics writeMetrics;
   private final InTaskMetrics inTaskMetrics;
   private final int shuffleId;
+  private final Option<Aggregator<K, V, C>> aggregator;
+  private final Option<Ordering<K>> ordering;
   private final int mapId;
   private final Serializer serializer;
   private final IndexShuffleBlockResolver shuffleBlockResolver;
@@ -109,7 +112,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
   BypassMergeSortShuffleWriter(
       BlockManager blockManager,
       IndexShuffleBlockResolver shuffleBlockResolver,
-      BypassMergeSortShuffleHandle<K, V> handle,
+      BypassMergeSortShuffleHandle<K, V, C> handle,
       int mapId,
       TaskContext taskContext,
       SparkConf conf) {
@@ -118,7 +121,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     this.fileBufferSize = (int) conf.getSizeAsKb("spark.shuffle.file.buffer", "32k") * 1024;
     this.transferToEnabled = conf.getBoolean("spark.file.transferTo", true);
     this.blockManager = blockManager;
-    final ShuffleDependency<K, V, V> dep = handle.dependency();
+    final ShuffleDependency<K, V, C> dep = handle.dependency();
+    this.aggregator = dep.aggregator();
+    this.ordering = dep.keyOrdering();
     this.mapId = mapId;
     this.shuffleId = dep.shuffleId();
     this.partitioner = dep.partitioner();
@@ -142,7 +147,6 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     final long init = System.nanoTime();
     TransEnv.TriggerSpillStart();
     inTaskMetrics.incSpillTime(System.nanoTime() - init);
-//    final SerializerInstance serInstance = serializer.newInstance(inTaskMetrics);
 //    final long openStartTime = System.nanoTime();
 //    partitionWriters = new DiskBlockObjectWriter[numPartitions];
 //    partitionWriterSegments = new FileSegment[numPartitions];
@@ -161,6 +165,88 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 //    writeMetrics.incWriteTime(System.nanoTime() - openStartTime);
     boolean print_type = true;
     long[] partitionLengths = new long[numPartitions];
+    Serde sd = new Serde();
+    if (aggregator.isDefined()) {
+     logger.info("has aggregator");
+      Aggregator<K,V,C> agg = aggregator.get();
+      PartitionedAppendOnlyMap<K, C> m = new PartitionedAppendOnlyMap<K, C>();
+      Product2<K, V> kv = null;
+      while(records.hasNext()) {
+        final Product2<K, V> record = records.next();
+        final K key = record._1();
+        final V value = record._2();
+        if (print_type) {
+            if (key == null) {
+                logger.info("K is null");
+            } else {
+                logger.info("K is {}", key.getClass().getName());
+            }
+            if (value == null) {
+                logger.info("V is null");
+            } else {
+                logger.info("V is {}", value.getClass().getName());
+            }
+            print_type = false;
+        }
+        int p = partitioner.getPartition(key);
+        final Tuple2<Object, K> ck = Tuple2.apply(p, key);
+        C cur = m.apply(ck);
+        if (cur != null) {
+            m.update(ck, agg.mergeValue().apply(cur, value));
+        } else {
+            m.update(ck, agg.createCombiner().apply(value));
+        }
+        if (m.size() > 10000) {
+            Comparator<K> d = null;
+            if (ordering.isDefined()) {
+                d = ordering.get();
+            } else {
+                d = new Comparator<K>() {
+                    @Override
+                    public int compare(K a, K b) {
+                        int h1 = 0;
+                        if (a != null) {
+                            h1 = a.hashCode();
+                        }
+                        int h2 = 0;
+                        if (b != null) {
+                            h2 = a.hashCode();
+                        }
+                        if (h1 < h2) {
+                            return -1;
+                        }
+                        if (h1 == h2) {
+                            return 0;
+                        }
+                        return 1;
+                    }
+                };
+            }
+
+            Iterator<Tuple2<Tuple2<Object, K>, C>> it
+                = m.partitionedDestructiveSortedIterator(new Some<>(d));
+            while(it.hasNext()) {
+                Tuple2<Tuple2<Object, K>, C> r = it.next();
+                Integer pid = (Integer) r._1._1;
+                final K k = record._1();
+                final V v = record._2();
+                final long spillSerializeStart = System.nanoTime();
+                final byte[] ks = sd.Serialize(key);
+                final byte[] vs = sd.Serialize(value);
+                inTaskMetrics.incSerializeTime(System.nanoTime() - spillSerializeStart);
+
+                final long spillShuffleStart = System.nanoTime();
+                TransEnv.Append(p, ks, vs, !records.hasNext());
+                inTaskMetrics.incSpillTime(System.nanoTime() - spillShuffleStart);
+                partitionLengths[p] += ks.length + vs.length;
+            }
+
+            m = new PartitionedAppendOnlyMap<>();
+        }
+      }
+      mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
+      return;
+    }
 
 //    final BlockId blockId = new TestBlockId("test" + Integer.toString(mapId));
 //    SerializationStream ss = serInstance.serializeStream(bs);
@@ -174,15 +260,20 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 ////      logger.info("BlockId {}", blockId.name());
 //    final DiskBlockObjectWriter w =
 //        blockManager.getDiskWriter(blockId, file, serInstance, fileBufferSize, writeMetrics);
-    Serde sd = new Serde();
     while (records.hasNext()) {
       final Product2<K, V> record = records.next();
       final K key = record._1();
       final V value = record._2();
-      if (print_type) {
-        logger.info("K: {} V: {}", key.getClass().getName(), value.getClass().getName());
-        print_type = false;
-      }
+        if (key == null) {
+            logger.info("K is null");
+        } else {
+            logger.info("K is {}", key.getClass().getName());
+        }
+        if (value == null) {
+            logger.info("V is null");
+        } else {
+            logger.info("V is {}", value.getClass().getName());
+        }
 //      partitionWriters[partitioner.getPartition(key)].write(key, record._2());
       int p = partitioner.getPartition(key);
 //      offsets.add(bs.size());

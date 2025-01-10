@@ -94,8 +94,8 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
       // them at the end. This avoids doing serialization and deserialization twice to merge
       // together the spilled files, which would happen with the normal code path. The downside is
       // having multiple files open at a time and thus more memory allocated to buffers.
-      new BypassMergeSortShuffleHandle[K, V](
-        shuffleId, numMaps, dependency.asInstanceOf[ShuffleDependency[K, V, V]])
+      new BypassMergeSortShuffleHandle[K, V, C](
+        shuffleId, numMaps, dependency.asInstanceOf[ShuffleDependency[K, V, C]])
     } else if (SortShuffleManager.canUseSerializedShuffle(dependency)) {
       // Otherwise, try to buffer map outputs in a serialized form, since this is more efficient:
       new SerializedShuffleHandle[K, V](
@@ -137,7 +137,7 @@ private[spark] class SortShuffleManager(conf: SparkConf) extends ShuffleManager 
           mapId,
           context,
           env.conf)
-      case bypassMergeSortHandle: BypassMergeSortShuffleHandle[K @unchecked, V @unchecked] =>
+      case bypassMergeSortHandle: BypassMergeSortShuffleHandle[K @unchecked, V @unchecked, _] =>
         new BypassMergeSortShuffleWriter(
           env.blockManager,
           shuffleBlockResolver.asInstanceOf[IndexShuffleBlockResolver],
@@ -218,9 +218,9 @@ private[spark] class SerializedShuffleHandle[K, V](
  * Subclass of [[BaseShuffleHandle]], used to identify when we've chosen to use the
  * bypass merge sort shuffle path.
  */
-private[spark] class BypassMergeSortShuffleHandle[K, V](
+private[spark] class BypassMergeSortShuffleHandle[K, V, C](
   shuffleId: Int,
   numMaps: Int,
-  dependency: ShuffleDependency[K, V, V])
+  dependency: ShuffleDependency[K, V, C])
   extends BaseShuffleHandle(shuffleId, numMaps, dependency) {
 }
