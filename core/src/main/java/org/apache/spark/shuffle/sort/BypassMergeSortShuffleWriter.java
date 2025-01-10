@@ -264,15 +264,18 @@ final class BypassMergeSortShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       final Product2<K, V> record = records.next();
       final K key = record._1();
       final V value = record._2();
-        if (key == null) {
-            logger.info("K is null");
-        } else {
-            logger.info("K is {}", key.getClass().getName());
-        }
-        if (value == null) {
-            logger.info("V is null");
-        } else {
-            logger.info("V is {}", value.getClass().getName());
+        if (print_type) {
+            if (key == null) {
+                logger.info("K is null");
+            } else {
+                logger.info("K is {}", key.getClass().getName());
+            }
+            if (value == null) {
+                logger.info("V is null");
+            } else {
+                logger.info("V is {}", value.getClass().getName());
+            }
+            print_type = false;
         }
 //      partitionWriters[partitioner.getPartition(key)].write(key, record._2());
       int p = partitioner.getPartition(key);
