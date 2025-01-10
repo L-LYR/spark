@@ -26,11 +26,15 @@ import pdsl.dpx.{SerdeInputStream, SerdeOutputStream}
 import java.io.{InputStream, OutputStream}
 import java.nio.ByteBuffer
 
-class SerdeWrapInputStream(s: InputStream) extends DeserializationStream {
+class SerdeWrapInputStream(s: InputStream,
+                           inTaskMetrics: InTaskMetrics) extends DeserializationStream {
   val ss = new SerdeInputStream(s)
 
   override def readObject[T: ClassTag](): T = {
-    ss.readObject(implicitly[ClassTag[T]].runtimeClass.asInstanceOf[Class[T]])
+    val readStart = System.nanoTime()
+    val obj = ss.readObject(implicitly[ClassTag[T]].runtimeClass.asInstanceOf[Class[T]])
+    inTaskMetrics.incDeserializeTime(System.nanoTime() - readStart)
+    obj
   }
 
   override def close(): Unit = {
@@ -38,11 +42,14 @@ class SerdeWrapInputStream(s: InputStream) extends DeserializationStream {
   }
 }
 
-class SerdeWrapOutputStream(s: OutputStream) extends SerializationStream {
+class SerdeWrapOutputStream(s: OutputStream,
+                            inTaskMetrics: InTaskMetrics) extends SerializationStream {
   val ss = new SerdeOutputStream(s)
 
   override def writeObject[T: ClassTag](t: T): SerializationStream = {
+    val writeStart = System.nanoTime()
     ss.writeObject(t)
+    inTaskMetrics.incSerializeTime(System.nanoTime() - writeStart)
     this
   }
 
@@ -55,7 +62,7 @@ class SerdeWrapOutputStream(s: OutputStream) extends SerializationStream {
   }
 }
 
-class SerdeSerializerInstance extends SerializerInstance {
+class SerdeSerializerInstance(inTaskMetrics: InTaskMetrics) extends SerializerInstance {
   override def serialize[T: ClassTag](t: T): ByteBuffer = {
     val bos = new ByteBufferOutputStream()
     val out = serializeStream(bos)
@@ -65,11 +72,11 @@ class SerdeSerializerInstance extends SerializerInstance {
   }
 
   override def serializeStream(s: OutputStream): SerializationStream = {
-    new SerdeWrapOutputStream(s)
+    new SerdeWrapOutputStream(s, inTaskMetrics)
   }
 
   override def deserializeStream(s: InputStream): DeserializationStream = {
-    new SerdeWrapInputStream(s)
+    new SerdeWrapInputStream(s, inTaskMetrics)
   }
 
   override def deserialize[T: ClassTag](bytes: ByteBuffer): T = {
@@ -85,6 +92,6 @@ class SerdeSerializerInstance extends SerializerInstance {
 
 class SerdeSerializer extends Serializer {
   override def newInstance(inTaskMetrics: InTaskMetrics): SerializerInstance = {
-    new SerdeSerializerInstance()
+    new SerdeSerializerInstance(inTaskMetrics)
   }
 }
