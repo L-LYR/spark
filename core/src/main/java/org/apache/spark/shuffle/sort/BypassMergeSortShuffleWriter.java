@@ -139,7 +139,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
       return;
     }
+    final long init = System.nanoTime();
     TransEnv.TriggerSpillStart();
+    inTaskMetrics.incSpillTime(System.nanoTime() - init);
 //    final SerializerInstance serInstance = serializer.newInstance(inTaskMetrics);
 //    final long openStartTime = System.nanoTime();
 //    partitionWriters = new DiskBlockObjectWriter[numPartitions];
@@ -192,7 +194,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
       final long spillShuffleStart = System.nanoTime();
       TransEnv.Append(p, k, v, !records.hasNext());
-      writeMetrics.incWriteTime(System.nanoTime() - spillShuffleStart);
+      inTaskMetrics.incSpillTime(System.nanoTime() - spillShuffleStart);
       partitionLengths[p] += k.length + v.length;
 //      hashcodes.add(p);
 

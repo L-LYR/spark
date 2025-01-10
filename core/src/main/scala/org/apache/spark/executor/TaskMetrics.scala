@@ -235,7 +235,8 @@ class TaskMetrics private[spark] () extends Serializable {
     output.BYTES_WRITTEN -> outputMetrics._bytesWritten,
     output.RECORDS_WRITTEN -> outputMetrics._recordsWritten,
     inTask.SERIALIZATION_TIME -> inTaskMetrics._serializeTime,
-    inTask.DESERIALIZATION_TIME -> inTaskMetrics._deserializeTime
+    inTask.DESERIALIZATION_TIME -> inTaskMetrics._deserializeTime,
+    inTask.SPILL_TIME -> inTaskMetrics._spillTime
   ) ++ testAccum.map(TEST_ACCUM -> _)
 
   @transient private[spark] lazy val internalAccums: Seq[AccumulatorV2[_, _]] =
