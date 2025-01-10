@@ -192,7 +192,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
       final long spillShuffleStart = System.nanoTime();
       PipelineTransEnv.Append(p, k, v, !records.hasNext());
-      writeMetrics.incWriteTime(System.nanoTime() - spillShuffleStart);
+      inTaskMetrics.incSpillTime(System.nanoTime() - spillShuffleStart);
       partitionLengths[p] += k.length + v.length;
 //      hashcodes.add(p);
 

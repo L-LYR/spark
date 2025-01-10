@@ -79,6 +79,7 @@ private[spark] object InternalAccumulator {
   object inTask {
     val SERIALIZATION_TIME = IN_TASK_PREFIX + "serializationTime"
     val DESERIALIZATION_TIME = IN_TASK_PREFIX + "deserializationTime"
+    val SPILL_TIME = IN_TASK_PREFIX + "spillTime"
   }
 
   // scalastyle:on

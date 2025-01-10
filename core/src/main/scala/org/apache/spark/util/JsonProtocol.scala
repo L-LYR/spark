@@ -365,7 +365,8 @@ private[spark] object JsonProtocol {
       })
     val inTaskMetrics: JValue =
       ("Serialization Time" -> taskMetrics.inTaskMetrics.serializeTime) ~
-        ("Deserialization Time" -> taskMetrics.inTaskMetrics.deserializeTime)
+        ("Deserialization Time" -> taskMetrics.inTaskMetrics.deserializeTime) ~
+        ("Spill Time" -> taskMetrics.inTaskMetrics.spillTime)
     ("Executor Deserialize Time" -> taskMetrics.executorDeserializeTime) ~
     ("Executor Deserialize CPU Time" -> taskMetrics.executorDeserializeCpuTime) ~
     ("Executor Run Time" -> taskMetrics.executorRunTime) ~
