@@ -123,7 +123,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
     this.partitioner = dep.partitioner();
     this.numPartitions = partitioner.numPartitions();
     this.writeMetrics = taskContext.taskMetrics().shuffleWriteMetrics();
-    this.inTaskMetrics =taskContext.taskMetrics().inTaskMetrics();
+    this.inTaskMetrics = taskContext.taskMetrics().inTaskMetrics();
     this.serializer = dep.serializer();
     logger.info(this.serializer.getClass().getName());
     this.shuffleBlockResolver = shuffleBlockResolver;
@@ -138,10 +138,9 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       mapStatus = MapStatus$.MODULE$.apply(blockManager.shuffleServerId(), partitionLengths);
       return;
     }
-    NaiveTransEnv.TriggerSpillStart(true);
     final SerializerInstance serInstance = serializer.newInstance(inTaskMetrics);
     final long init = System.nanoTime();
-    TransEnv.TriggerSpillStart();
+    NaiveTransEnv.TriggerSpillStart(true);
     inTaskMetrics.incSpillTime(System.nanoTime() - init);
 //    final SerializerInstance serInstance = serializer.newInstance(inTaskMetrics);
 //    final long openStartTime = System.nanoTime();
@@ -213,7 +212,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
     final long shuffleSpillStart = System.nanoTime();
     NaiveTransEnv.Spill(result);
-    writeMetrics.incWriteTime(System.nanoTime() - shuffleSpillStart);
+    inTaskMetrics.incSpillTime(System.nanoTime() - shuffleSpillStart);
 
 //    for (int i = 0; i < numPartitions; i++) {
 //      final DiskBlockObjectWriter writer = partitionWriters[i];
