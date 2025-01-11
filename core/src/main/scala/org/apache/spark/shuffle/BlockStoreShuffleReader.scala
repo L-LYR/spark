@@ -19,7 +19,7 @@ package org.apache.spark.shuffle
 
 import org.apache.spark._
 import org.apache.spark.internal.{Logging, config}
-import org.apache.spark.serializer.{SerdeSerializer, SerializerManager}
+import org.apache.spark.serializer.{SerdeSerializer, SerdeWrapInputStream, SerializerManager}
 import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
 import org.apache.spark.util.{CompletionIterator, NextIterator}
 import org.apache.spark.util.collection.ExternalSorter
@@ -60,9 +60,7 @@ private[spark] class BlockStoreShuffleReader[K, C](
 //      SparkEnv.get.conf.get(config.MAX_REMOTE_BLOCK_SIZE_FETCH_TO_MEM),
 //      SparkEnv.get.conf.getBoolean("spark.shuffle.detectCorrupt", true))
     // TODO: wait mount fs or wait for flush all
-    val shuffleWaitStart = System.nanoTime();
     TransEnv.WaitForSpillDone();
-    context.taskMetrics().shuffleReadMetrics.incFetchWaitTime(System.nanoTime() - shuffleWaitStart);
     val serializerInstance = dep.serializer.newInstance()
 
     // Create a key/value iterator for each stream
@@ -83,16 +81,23 @@ private[spark] class BlockStoreShuffleReader[K, C](
         s"/home/lsc/dpx/.test_spill/p${startPartition + 1}"
       )
     }
-    val bufferSize = 32 * 1024 * 1024; // 1 MB
+    val readMetrics = context.taskMetrics.createTempShuffleReadMetrics()
+    val bufferSize = 32 * 1024 * 1024; // 32 MB
     val recordIter = files.iterator.map(fn => new File(fn))
       .filter(f => f.length() > 0).map(
-        f => new SerdeInputStream(
-          new ReadAheadInputStream(new NioBufferedFileInputStream(f, bufferSize), bufferSize)))
+        f =>
+//          new SerdeInputStream(
+          new SerdeWrapInputStream(
+          new ReadAheadInputStream(
+            new NioBufferedFileInputStream(f, bufferSize), bufferSize, readMetrics)
+          , context.taskMetrics().inTaskMetrics)
+//        )
+      )
       .flatMap(s => new NextIterator [(Any, Any)] {
-
         override protected def getNext() = {
           try {
-            (s.readObject(classOf[Any]), s.readObject(classOf[Any]))
+//            (s.readObject(classOf[Any]), s.readObject(classOf[Any]))
+            (s.readKey(), s.readValue())
           } catch {
             case eof: EOFException =>
               finished = true
@@ -107,7 +112,6 @@ private[spark] class BlockStoreShuffleReader[K, C](
 
 
     // Update the context task metrics for each record read.
-    val readMetrics = context.taskMetrics.createTempShuffleReadMetrics()
     val metricIter = CompletionIterator[(Any, Any), Iterator[(Any, Any)]](
       recordIter.map { record =>
         readMetrics.incRecordsRead(1)

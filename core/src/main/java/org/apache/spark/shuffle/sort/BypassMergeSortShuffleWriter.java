@@ -228,11 +228,8 @@ final class BypassMergeSortShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
                 Integer pid = (Integer) r._1._1;
                 final K k = record._1();
                 final V v = record._2();
-                final long spillSerializeStart = System.nanoTime();
                 final byte[] ks = sd.Serialize(key);
                 final byte[] vs = sd.Serialize(value);
-                inTaskMetrics.incSerializeTime(System.nanoTime() - spillSerializeStart);
-
                 final long spillShuffleStart = System.nanoTime();
                 TransEnv.Append(p, ks, vs, !records.hasNext());
                 inTaskMetrics.incSpillTime(System.nanoTime() - spillShuffleStart);
@@ -279,11 +276,8 @@ final class BypassMergeSortShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
       int p = partitioner.getPartition(key);
 //      offsets.add(bs.size());
 //      partitionLengths[p] += bs.size() - offsets.get(offsets.size() - 1);
-      final long spillSerializeStart = System.nanoTime();
       final byte[] k = sd.Serialize(key);
       final byte[] v = sd.Serialize(value);
-      inTaskMetrics.incSerializeTime(System.nanoTime() - spillSerializeStart);
-
       final long spillShuffleStart = System.nanoTime();
       TransEnv.Append(p, k, v, !records.hasNext());
       inTaskMetrics.incSpillTime(System.nanoTime() - spillShuffleStart);
