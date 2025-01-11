@@ -83,10 +83,13 @@ private[spark] class BlockStoreShuffleReader[K, C](
         s"/home/lsc/dpx/.test_spill/p${startPartition + 1}"
       )
     }
+    val readMetrics = context.taskMetrics.createTempShuffleReadMetrics()
+    val bufSize = 32 * 1024 * 1024;
     val recordIter = files.iterator.map(fn => new File(fn))
       .filter(f => f.length() > 0).map(
         f => new SerdeInputStream(
-          new ReadAheadInputStream(new NioBufferedFileInputStream(f, 1024 * 1024), 1024 * 1024)))
+          new ReadAheadInputStream(
+            new NioBufferedFileInputStream(f, bufSize), bufSize, readMetrics)))
       .flatMap(s => new NextIterator [(Any, Any)] {
 
         override protected def getNext() = {
@@ -106,7 +109,6 @@ private[spark] class BlockStoreShuffleReader[K, C](
 
 
     // Update the context task metrics for each record read.
-    val readMetrics = context.taskMetrics.createTempShuffleReadMetrics()
     val metricIter = CompletionIterator[(Any, Any), Iterator[(Any, Any)]](
       recordIter.map { record =>
         readMetrics.incRecordsRead(1)

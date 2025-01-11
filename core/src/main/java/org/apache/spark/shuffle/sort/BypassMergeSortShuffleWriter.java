@@ -185,10 +185,8 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
       int p = partitioner.getPartition(key);
 //      offsets.add(bs.size());
 //      partitionLengths[p] += bs.size() - offsets.get(offsets.size() - 1);
-      final long spillSerializeStart = System.nanoTime();
       final byte[] k = sd.Serialize(key);
       final byte[] v = sd.Serialize(value);
-      inTaskMetrics.incSerializeTime(System.nanoTime() - spillSerializeStart);
 
       final long spillShuffleStart = System.nanoTime();
       PipelineTransEnv.Append(p, k, v, !records.hasNext());

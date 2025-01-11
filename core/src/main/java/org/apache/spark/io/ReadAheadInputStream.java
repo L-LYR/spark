@@ -15,6 +15,7 @@ package org.apache.spark.io;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import org.apache.spark.executor.TempShuffleReadMetrics;
 import org.apache.spark.util.ThreadUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,7 +91,11 @@ public class ReadAheadInputStream extends InputStream {
   private final Condition asyncReadComplete = stateChangeLock.newCondition();
 
   private static final ThreadLocal<byte[]> oneByte = ThreadLocal.withInitial(() -> new byte[1]);
-
+  TempShuffleReadMetrics m;
+  public ReadAheadInputStream(
+          InputStream inputStream, int bufferSizeInBytes) {
+    this(inputStream, bufferSizeInBytes, null);
+  }
   /**
    * Creates a <code>ReadAheadInputStream</code> with the specified buffer size and read-ahead
    * threshold
@@ -99,7 +104,7 @@ public class ReadAheadInputStream extends InputStream {
    * @param bufferSizeInBytes The buffer size.
    */
   public ReadAheadInputStream(
-      InputStream inputStream, int bufferSizeInBytes) {
+          InputStream inputStream, int bufferSizeInBytes, TempShuffleReadMetrics m) {
     Preconditions.checkArgument(bufferSizeInBytes > 0,
         "bufferSizeInBytes should be greater than 0, but the value is " + bufferSizeInBytes);
     activeBuffer = ByteBuffer.allocate(bufferSizeInBytes);
@@ -107,6 +112,7 @@ public class ReadAheadInputStream extends InputStream {
     this.underlyingInputStream = inputStream;
     activeBuffer.flip();
     readAheadBuffer.flip();
+    this.m = m;
   }
 
   private boolean isEndOfStream() {
@@ -269,7 +275,11 @@ public class ReadAheadInputStream extends InputStream {
       // No remaining in active buffer - lock and switch to write ahead buffer.
       stateChangeLock.lock();
       try {
+        long waitStart = System.currentTimeMillis();
         waitForAsyncReadComplete();
+        if (m != null) {
+          m.incFetchWaitTime(System.currentTimeMillis() - waitStart);
+        }
         if (!readAheadBuffer.hasRemaining()) {
           // The first read.
           readAsync();
