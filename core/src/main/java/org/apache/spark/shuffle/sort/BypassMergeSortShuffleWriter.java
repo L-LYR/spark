@@ -213,7 +213,7 @@ final class BypassMergeSortShuffleWriter<K, V> extends ShuffleWriter<K, V> {
 
     final long shuffleSpillStart = System.nanoTime();
     NaiveTransEnv.Spill(result);
-    writeMetrics.incWriteTime(System.nanoTime() - shuffleSpillStart);
+    inTaskMetrics.incSpillTime(System.nanoTime() - shuffleSpillStart);
 
 //    for (int i = 0; i < numPartitions; i++) {
 //      final DiskBlockObjectWriter writer = partitionWriters[i];
