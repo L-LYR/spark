@@ -19,14 +19,14 @@ package org.apache.spark.shuffle
 
 import org.apache.spark._
 import org.apache.spark.internal.{Logging, config}
-import org.apache.spark.serializer.SerializerManager
+import org.apache.spark.serializer.{SerdeSerializer, SerializerManager}
 import org.apache.spark.storage.{BlockManager, ShuffleBlockFetcherIterator}
 import org.apache.spark.util.{CompletionIterator, NextIterator}
 import org.apache.spark.util.collection.ExternalSorter
 import pdsl.dpx.{NaiveTransEnv, PipelineTransEnv, SerdeInputStream}
 
 import java.io.{BufferedInputStream, EOFException, File, FileInputStream}
-import org.apache.spark.io.{ReadAheadInputStream, NioBufferedFileInputStream}
+import org.apache.spark.io.{NioBufferedFileInputStream, ReadAheadInputStream}
 
 /**
  * Fetches and reads the partitions in range [startPartition, endPartition) from a shuffle by
@@ -140,7 +140,8 @@ private[spark] class BlockStoreShuffleReader[K, C](
       case Some(keyOrd: Ordering[K]) =>
         // Create an ExternalSorter to sort the data.
         val sorter =
-          new ExternalSorter[K, C, C](context, ordering = Some(keyOrd), serializer = dep.serializer)
+          new ExternalSorter[K, C, C](context, ordering = Some(keyOrd),
+            serializer = new SerdeSerializer())
         sorter.insertAll(aggregatedIter)
         context.taskMetrics().incMemoryBytesSpilled(sorter.memoryBytesSpilled)
         context.taskMetrics().incDiskBytesSpilled(sorter.diskBytesSpilled)
