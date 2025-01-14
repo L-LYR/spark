@@ -194,7 +194,7 @@ final class BypassMergeSortShuffleWriter<K, V, C> extends ShuffleWriter<K, V> {
         } else {
             m.update(ck, agg.createCombiner().apply(value));
         }
-        if (m.size() > 10000) {
+        if (m.size() > 320000) {
             Comparator<K> d = null;
             if (ordering.isDefined()) {
                 d = ordering.get();
